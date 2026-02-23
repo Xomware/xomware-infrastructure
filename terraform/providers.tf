@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "aws" {
-  access_key = var.access_key
-  secret_key = var.secret_key
-  region     = var.aws_region
+  region = var.aws_region
+  # Auth via AWS CLI profile, env vars (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY),
+  # or IAM role. No hardcoded credentials.
 }

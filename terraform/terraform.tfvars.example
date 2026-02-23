@@ -1,0 +1,4 @@
+# Copy to terraform.tfvars and fill in values
+# terraform.tfvars is gitignored — never commit secrets
+
+command_center_passphrase_hash = ""
