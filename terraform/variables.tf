@@ -64,3 +64,10 @@ variable "enable_cloudfront_cache" {
   type        = bool
   default     = true
 }
+
+# File Editor API
+variable "command_center_passphrase_hash" {
+  description = "SHA-256 hash of the Command Center passphrase for API auth"
+  type        = string
+  sensitive   = true
+}
