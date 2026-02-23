@@ -15,7 +15,7 @@ PASSPHRASE_HASH = os.environ["PASSPHRASE_HASH"]
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "https://xomware.com")
 
 # Only allow .md files, no path traversal
-ALLOWED_EXTENSIONS = {".md"}
+ALLOWED_EXTENSIONS = {".md", ".json"}
 MAX_FILE_SIZE = 100_000  # 100KB
 
 
