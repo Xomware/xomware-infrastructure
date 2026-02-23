@@ -203,6 +203,12 @@ resource "aws_apigatewayv2_route" "put_file" {
   target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
 }
 
+resource "aws_apigatewayv2_route" "agent_status" {
+  api_id    = aws_apigatewayv2_api.file_editor.id
+  route_key = "GET /status/agents"
+  target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
+}
+
 resource "aws_lambda_permission" "file_editor_apigw" {
   statement_id  = "AllowAPIGateway"
   action        = "lambda:InvokeFunction"

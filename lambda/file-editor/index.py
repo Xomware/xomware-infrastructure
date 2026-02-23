@@ -117,15 +117,43 @@ def put_file(filename, body):
         return response(500, {"error": str(e)})
 
 
+def get_agent_status():
+    """Read agent-status.json from S3 — the live status of all agents."""
+    try:
+        obj = s3.get_object(Bucket=BUCKET, Key="agent-status.json")
+        content = obj["Body"].read().decode("utf-8")
+        data = json.loads(content)
+        return response(200, data)
+    except s3.exceptions.NoSuchKey:
+        # Return default status if file doesn't exist yet
+        return response(200, {
+            "updatedAt": None,
+            "agents": [
+                {"name": "Jarvis", "status": "idle", "task": None},
+                {"name": "Forge", "status": "idle", "task": None},
+                {"name": "Recon", "status": "idle", "task": None},
+                {"name": "Watchtower", "status": "idle", "task": None},
+                {"name": "Scribe", "status": "idle", "task": None},
+                {"name": "Deployer", "status": "idle", "task": None},
+            ]
+        })
+    except ClientError as e:
+        return response(500, {"error": str(e)})
+
+
 def handler(event, context):
     """Main Lambda handler — routes based on HTTP method and path."""
-    # Auth check
-    if not authenticate(event):
-        return response(401, {"error": "Unauthorized"})
-
     method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
     path = event.get("rawPath", "")
     path_params = event.get("pathParameters") or {}
+
+    # Agent status is read-only, still requires auth
+    if not authenticate(event):
+        return response(401, {"error": "Unauthorized"})
+
+    # Route: GET /status/agents
+    if method == "GET" and path == "/status/agents":
+        return get_agent_status()
 
     # Route: GET /config/files
     if method == "GET" and path == "/config/files":
