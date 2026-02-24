@@ -141,13 +141,160 @@ def get_agent_status():
         return response(500, {"error": str(e)})
 
 
+STATE_BUCKET = os.environ.get("STATE_BUCKET_NAME", "")
+
+# Terraform state attributes that may contain secrets — redact values
+SENSITIVE_ATTR_PATTERNS = {
+    "password", "secret", "private_key", "access_key", "secret_key",
+    "token", "credentials", "api_key", "passphrase", "connection_string",
+    "authorization", "cookie", "session",
+}
+
+
+def is_sensitive_key(key):
+    """Check if an attribute key looks like it contains sensitive data."""
+    key_lower = key.lower()
+    return any(pattern in key_lower for pattern in SENSITIVE_ATTR_PATTERNS)
+
+
+def redact_attributes(attrs):
+    """Deep-redact sensitive values from a dict of Terraform attributes."""
+    if not isinstance(attrs, dict):
+        return attrs
+    redacted = {}
+    for k, v in attrs.items():
+        if is_sensitive_key(k):
+            redacted[k] = "**REDACTED**"
+        elif isinstance(v, dict):
+            redacted[k] = redact_attributes(v)
+        elif isinstance(v, list):
+            redacted[k] = [
+                redact_attributes(item) if isinstance(item, dict) else item
+                for item in v
+            ]
+        else:
+            redacted[k] = v
+    return redacted
+
+
+def redact_outputs(outputs):
+    """Redact sensitive Terraform outputs."""
+    if not isinstance(outputs, dict):
+        return outputs
+    redacted = {}
+    for k, v in outputs.items():
+        out = dict(v) if isinstance(v, dict) else {"value": v}
+        if out.get("sensitive", False) or is_sensitive_key(k):
+            out["value"] = "**REDACTED**"
+        redacted[k] = out
+    return redacted
+
+
+def list_workspaces():
+    """List Terraform workspaces from the state bucket."""
+    if not STATE_BUCKET:
+        return response(500, {"error": "State bucket not configured"})
+    try:
+        result = s3.list_objects_v2(Bucket=STATE_BUCKET, Delimiter="/")
+        workspaces = []
+        for prefix in result.get("CommonPrefixes", []):
+            app_name = prefix["Prefix"].rstrip("/")
+            # Get state file metadata
+            try:
+                head = s3.head_object(
+                    Bucket=STATE_BUCKET, Key=f"{app_name}/terraform.tfstate"
+                )
+                # Parse state to get resource count
+                obj = s3.get_object(
+                    Bucket=STATE_BUCKET, Key=f"{app_name}/terraform.tfstate"
+                )
+                state = json.loads(obj["Body"].read().decode("utf-8"))
+                resources = state.get("resources", [])
+                resource_count = sum(
+                    len(r.get("instances", [])) for r in resources
+                    if r.get("mode") == "managed"
+                )
+                workspaces.append({
+                    "name": app_name,
+                    "resourceCount": resource_count,
+                    "lastModified": head["LastModified"].isoformat(),
+                    "serial": state.get("serial", 0),
+                    "terraformVersion": state.get("terraform_version", "unknown"),
+                    "fileSize": head["ContentLength"],
+                })
+            except ClientError:
+                workspaces.append({
+                    "name": app_name,
+                    "resourceCount": 0,
+                    "lastModified": None,
+                    "serial": 0,
+                    "terraformVersion": "unknown",
+                    "fileSize": 0,
+                })
+        return response(200, {"workspaces": workspaces})
+    except ClientError as e:
+        return response(500, {"error": str(e)})
+
+
+def get_workspace_state(app_name):
+    """Parse and return a workspace's Terraform state (redacted)."""
+    if not STATE_BUCKET:
+        return response(500, {"error": "State bucket not configured"})
+    # Validate app name — alphanumeric, hyphens, underscores only
+    if not app_name or not all(c.isalnum() or c in "-_" for c in app_name):
+        return response(400, {"error": "Invalid workspace name"})
+    try:
+        obj = s3.get_object(
+            Bucket=STATE_BUCKET, Key=f"{app_name}/terraform.tfstate"
+        )
+        state = json.loads(obj["Body"].read().decode("utf-8"))
+
+        # Parse resources
+        resources = []
+        for r in state.get("resources", []):
+            mode = r.get("mode", "managed")
+            res_type = r.get("type", "")
+            res_name = r.get("name", "")
+            module = r.get("module", "")
+            provider = r.get("provider", "")
+            for inst in r.get("instances", []):
+                attrs = inst.get("attributes", {})
+                resources.append({
+                    "mode": mode,
+                    "type": res_type,
+                    "name": res_name,
+                    "module": module or None,
+                    "provider": provider,
+                    "attributes": redact_attributes(attrs),
+                    "indexKey": inst.get("index_key"),
+                })
+
+        # Parse outputs (redacted)
+        outputs = redact_outputs(state.get("outputs", {}))
+
+        return response(200, {
+            "workspace": app_name,
+            "serial": state.get("serial", 0),
+            "terraformVersion": state.get("terraform_version", "unknown"),
+            "lineage": state.get("lineage", ""),
+            "resourceCount": len([r for r in resources if r["mode"] == "managed"]),
+            "dataSourceCount": len([r for r in resources if r["mode"] == "data"]),
+            "resources": resources,
+            "outputs": outputs,
+        })
+    except s3.exceptions.NoSuchKey:
+        return response(404, {"error": f"No state found for workspace '{app_name}'"})
+    except ClientError as e:
+        return response(500, {"error": str(e)})
+
+
 def handler(event, context):
     """Main Lambda handler — routes based on HTTP method and path."""
     method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
     path = event.get("rawPath", "")
     path_params = event.get("pathParameters") or {}
 
-    # Agent status is read-only, still requires auth
+    # Auth required for all routes
     if not authenticate(event):
         return response(401, {"error": "Unauthorized"})
 
@@ -160,11 +307,19 @@ def handler(event, context):
         return list_files()
 
     # Route: GET /config/files/{filename}
-    if method == "GET" and "filename" in path_params:
+    if method == "GET" and "filename" in path_params and path.startswith("/config"):
         return get_file(path_params["filename"])
 
     # Route: PUT /config/files/{filename}
     if method == "PUT" and "filename" in path_params:
         return put_file(path_params["filename"], event.get("body", "{}"))
+
+    # Route: GET /infra/workspaces
+    if method == "GET" and path == "/infra/workspaces":
+        return list_workspaces()
+
+    # Route: GET /infra/workspaces/{app}/state
+    if method == "GET" and "app" in path_params and path.endswith("/state"):
+        return get_workspace_state(path_params["app"])
 
     return response(404, {"error": "Not found"})
