@@ -4,18 +4,6 @@ variable "app_name" {
   default     = "xomware"
 }
 
-variable "access_key" {
-  description = "AWS access key."
-  type        = string
-  sensitive   = true
-}
-
-variable "secret_key" {
-  description = "AWS secret key."
-  type        = string
-  sensitive   = true
-}
-
 variable "domain_suffix" {
   description = "Suffix for the domain of the app."
   type        = string
