@@ -54,6 +54,12 @@ variable "enable_cloudfront_cache" {
 }
 
 # File Editor API
+variable "terraform_state_bucket" {
+  description = "S3 bucket name containing Terraform state files"
+  type        = string
+  default     = "xomware-terraform-state"
+}
+
 variable "command_center_passphrase_hash" {
   description = "SHA-256 hash of the Command Center passphrase for API auth"
   type        = string

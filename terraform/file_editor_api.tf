@@ -95,6 +95,18 @@ resource "aws_iam_role_policy" "file_editor_s3" {
       {
         Effect = "Allow"
         Action = [
+          "s3:GetObject",
+          "s3:ListBucket",
+          "s3:HeadObject"
+        ]
+        Resource = [
+          "arn:aws:s3:::${var.terraform_state_bucket}",
+          "arn:aws:s3:::${var.terraform_state_bucket}/*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "kms:Decrypt",
           "kms:GenerateDataKey"
         ]
@@ -117,16 +129,17 @@ resource "aws_lambda_function" "file_editor" {
   role             = aws_iam_role.file_editor_lambda.arn
   handler          = "index.handler"
   runtime          = "python3.12"
-  timeout          = 15
-  memory_size      = 128
+  timeout          = 30
+  memory_size      = 256
   filename         = data.archive_file.file_editor_lambda.output_path
   source_code_hash = data.archive_file.file_editor_lambda.output_base64sha256
 
   environment {
     variables = {
-      BUCKET_NAME     = aws_s3_bucket.workspace_config.id
-      PASSPHRASE_HASH = var.command_center_passphrase_hash
-      ALLOWED_ORIGIN  = "https://${local.domain_name}"
+      BUCKET_NAME       = aws_s3_bucket.workspace_config.id
+      STATE_BUCKET_NAME = var.terraform_state_bucket
+      PASSPHRASE_HASH   = var.command_center_passphrase_hash
+      ALLOWED_ORIGIN    = "https://${local.domain_name}"
     }
   }
 
@@ -206,6 +219,20 @@ resource "aws_apigatewayv2_route" "put_file" {
 resource "aws_apigatewayv2_route" "agent_status" {
   api_id    = aws_apigatewayv2_api.file_editor.id
   route_key = "GET /status/agents"
+  target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
+}
+
+# --- Infrastructure Dashboard Routes ---
+
+resource "aws_apigatewayv2_route" "infra_workspaces" {
+  api_id    = aws_apigatewayv2_api.file_editor.id
+  route_key = "GET /infra/workspaces"
+  target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
+}
+
+resource "aws_apigatewayv2_route" "infra_workspace_state" {
+  api_id    = aws_apigatewayv2_api.file_editor.id
+  route_key = "GET /infra/workspaces/{app}/state"
   target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
 }
 
