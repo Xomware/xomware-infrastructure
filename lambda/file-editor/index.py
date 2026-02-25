@@ -125,16 +125,16 @@ def get_agent_status():
         data = json.loads(content)
         return response(200, data)
     except s3.exceptions.NoSuchKey:
-        # Return default status if file doesn't exist yet
         return response(200, {
             "updatedAt": None,
             "agents": [
                 {"name": "Jarvis", "status": "idle", "task": None},
-                {"name": "Forge", "status": "idle", "task": None},
-                {"name": "Recon", "status": "idle", "task": None},
-                {"name": "Watchtower", "status": "idle", "task": None},
-                {"name": "Scribe", "status": "idle", "task": None},
-                {"name": "Deployer", "status": "idle", "task": None},
+                {"name": "Boris", "status": "idle", "task": None},
+                {"name": "Freddy", "status": "idle", "task": None},
+                {"name": "Rocco", "status": "idle", "task": None},
+                {"name": "Winston", "status": "idle", "task": None},
+                {"name": "Stormy", "status": "idle", "task": None},
+                {"name": "Debo", "status": "idle", "task": None},
             ]
         })
     except ClientError as e:
@@ -284,6 +284,28 @@ def get_workspace_state(app_name):
         })
     except s3.exceptions.NoSuchKey:
         return response(404, {"error": f"No state found for workspace '{app_name}'"})
+
+def get_board_status():
+    """Read board-status.json from S3 — the live XomBoard state."""
+    try:
+        obj = s3.get_object(Bucket=BUCKET, Key="board-status.json")
+        content = obj["Body"].read().decode("utf-8")
+        data = json.loads(content)
+        return response(200, data)
+    except s3.exceptions.NoSuchKey:
+        return response(200, {
+            "updatedAt": None,
+            "columns": [
+                {"id": "dom-todo", "title": "Dom Todo", "icon": "👤", "color": "#3b82f6"},
+                {"id": "blocked-by-dom", "title": "Blocked by Dom", "icon": "🚫", "color": "#ef4444"},
+                {"id": "todo", "title": "Todo", "icon": "📋", "color": "#8a8a9a"},
+                {"id": "in-progress", "title": "In Progress", "icon": "🔨", "color": "#00b4d8"},
+                {"id": "in-review", "title": "In Review", "icon": "👀", "color": "#ff6b35"},
+                {"id": "dom-done", "title": "Dom Done", "icon": "✅", "color": "#22c55e"},
+                {"id": "done", "title": "Done", "icon": "✅", "color": "#00ffab"},
+            ],
+            "cards": []
+        })
     except ClientError as e:
         return response(500, {"error": str(e)})
 
@@ -301,6 +323,10 @@ def handler(event, context):
     # Route: GET /status/agents
     if method == "GET" and path == "/status/agents":
         return get_agent_status()
+
+    # Route: GET /status/board
+    if method == "GET" and path == "/status/board":
+        return get_board_status()
 
     # Route: GET /config/files
     if method == "GET" and path == "/config/files":

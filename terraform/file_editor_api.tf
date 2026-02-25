@@ -233,6 +233,10 @@ resource "aws_apigatewayv2_route" "infra_workspaces" {
 resource "aws_apigatewayv2_route" "infra_workspace_state" {
   api_id    = aws_apigatewayv2_api.file_editor.id
   route_key = "GET /infra/workspaces/{app}/state"
+
+resource "aws_apigatewayv2_route" "board_status" {
+  api_id    = aws_apigatewayv2_api.file_editor.id
+  route_key = "GET /status/board"
   target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
 }
 
