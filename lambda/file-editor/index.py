@@ -24,7 +24,7 @@ def response(status_code, body, extra_headers=None):
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
         "Access-Control-Allow-Headers": "Content-Type,X-Auth-Hash",
-        "Access-Control-Allow-Methods": "GET,PUT,OPTIONS",
+        "Access-Control-Allow-Methods": "GET,PUT,POST,OPTIONS",
     }
     if extra_headers:
         headers.update(extra_headers)
@@ -311,6 +311,103 @@ def get_board_status():
         return response(500, {"error": str(e)})
 
 
+def get_board_inbox():
+    """Read board-inbox.json — ideas waiting to be turned into tickets."""
+    try:
+        obj = s3.get_object(Bucket=BUCKET, Key="board-inbox.json")
+        content = obj["Body"].read().decode("utf-8")
+        data = json.loads(content)
+        return response(200, data)
+    except s3.exceptions.NoSuchKey:
+        return response(200, {"items": []})
+    except ClientError as e:
+        return response(500, {"error": str(e)})
+
+
+def add_board_inbox_item(body):
+    """Add an idea to the board inbox for Scribe to process."""
+    import datetime
+    import uuid
+    try:
+        data = json.loads(body) if isinstance(body, str) else body
+        title = (data.get("title") or "").strip()
+        if not title:
+            return response(400, {"error": "title is required"})
+
+        description = (data.get("description") or "").strip()
+        repo_hint = (data.get("repoHint") or "").strip()
+
+        # Read existing inbox
+        try:
+            obj = s3.get_object(Bucket=BUCKET, Key="board-inbox.json")
+            inbox = json.loads(obj["Body"].read().decode("utf-8"))
+        except s3.exceptions.NoSuchKey:
+            inbox = {"items": []}
+
+        item = {
+            "id": str(uuid.uuid4())[:8],
+            "title": title,
+            "description": description,
+            "repoHint": repo_hint,
+            "status": "pending",
+            "createdAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "processedAt": None,
+            "issuesCreated": [],
+        }
+        inbox["items"].append(item)
+
+        s3.put_object(
+            Bucket=BUCKET,
+            Key="board-inbox.json",
+            Body=json.dumps(inbox).encode("utf-8"),
+            ContentType="application/json",
+        )
+        return response(201, {"added": True, "item": item})
+    except (json.JSONDecodeError, AttributeError):
+        return response(400, {"error": "Invalid request body"})
+    except ClientError as e:
+        return response(500, {"error": str(e)})
+
+
+def update_board_inbox_item(body):
+    """Update an inbox item (used by Scribe to mark as processed)."""
+    import datetime
+    try:
+        data = json.loads(body) if isinstance(body, str) else body
+        item_id = data.get("id")
+        if not item_id:
+            return response(400, {"error": "id is required"})
+
+        obj = s3.get_object(Bucket=BUCKET, Key="board-inbox.json")
+        inbox = json.loads(obj["Body"].read().decode("utf-8"))
+
+        for item in inbox["items"]:
+            if item["id"] == item_id:
+                if "status" in data:
+                    item["status"] = data["status"]
+                if "issuesCreated" in data:
+                    item["issuesCreated"] = data["issuesCreated"]
+                if data.get("status") == "processed":
+                    item["processedAt"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                break
+        else:
+            return response(404, {"error": "Item not found"})
+
+        s3.put_object(
+            Bucket=BUCKET,
+            Key="board-inbox.json",
+            Body=json.dumps(inbox).encode("utf-8"),
+            ContentType="application/json",
+        )
+        return response(200, {"updated": True})
+    except s3.exceptions.NoSuchKey:
+        return response(404, {"error": "Inbox not found"})
+    except (json.JSONDecodeError, AttributeError):
+        return response(400, {"error": "Invalid request body"})
+    except ClientError as e:
+        return response(500, {"error": str(e)})
+
+
 def move_board_card(body):
     """Move a card to a different column in board-status.json."""
     try:
@@ -384,6 +481,18 @@ def handler(event, context):
     # Route: PUT /status/board/move
     if method == "PUT" and path == "/status/board/move":
         return move_board_card(event.get("body", "{}"))
+
+    # Route: GET /status/board/inbox
+    if method == "GET" and path == "/status/board/inbox":
+        return get_board_inbox()
+
+    # Route: POST /status/board/inbox
+    if method == "POST" and path == "/status/board/inbox":
+        return add_board_inbox_item(event.get("body", "{}"))
+
+    # Route: PUT /status/board/inbox
+    if method == "PUT" and path == "/status/board/inbox":
+        return update_board_inbox_item(event.get("body", "{}"))
 
     # Route: GET /config/files
     if method == "GET" and path == "/config/files":

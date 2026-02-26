@@ -248,6 +248,24 @@ resource "aws_apigatewayv2_route" "board_move" {
   target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
 }
 
+resource "aws_apigatewayv2_route" "board_inbox_get" {
+  api_id    = aws_apigatewayv2_api.file_editor.id
+  route_key = "GET /status/board/inbox"
+  target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
+}
+
+resource "aws_apigatewayv2_route" "board_inbox_post" {
+  api_id    = aws_apigatewayv2_api.file_editor.id
+  route_key = "POST /status/board/inbox"
+  target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
+}
+
+resource "aws_apigatewayv2_route" "board_inbox_put" {
+  api_id    = aws_apigatewayv2_api.file_editor.id
+  route_key = "PUT /status/board/inbox"
+  target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
+}
+
 resource "aws_lambda_permission" "file_editor_apigw" {
   statement_id  = "AllowAPIGateway"
   action        = "lambda:InvokeFunction"
