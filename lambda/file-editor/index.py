@@ -297,14 +297,15 @@ def get_board_status():
             "updatedAt": None,
             "columns": [
                 {"id": "dom-todo", "title": "Dom Todo", "icon": "👤", "color": "#3b82f6"},
+                {"id": "dom-done", "title": "Dom Done", "icon": "👍", "color": "#22c55e"},
                 {"id": "blocked-by-dom", "title": "Blocked by Dom", "icon": "🚫", "color": "#ef4444"},
                 {"id": "todo", "title": "Todo", "icon": "📋", "color": "#8a8a9a"},
                 {"id": "in-progress", "title": "In Progress", "icon": "🔨", "color": "#00b4d8"},
                 {"id": "in-review", "title": "In Review", "icon": "👀", "color": "#ff6b35"},
-                {"id": "dom-done", "title": "Dom Done", "icon": "✅", "color": "#22c55e"},
                 {"id": "done", "title": "Done", "icon": "✅", "color": "#00ffab"},
             ],
-            "cards": []
+            "cards": [],
+            "archivedCards": []
         })
     except ClientError as e:
         return response(500, {"error": str(e)})
