@@ -242,6 +242,12 @@ resource "aws_apigatewayv2_route" "board_status" {
   target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
 }
 
+resource "aws_apigatewayv2_route" "board_move" {
+  api_id    = aws_apigatewayv2_api.file_editor.id
+  route_key = "PUT /status/board/move"
+  target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
+}
+
 resource "aws_lambda_permission" "file_editor_apigw" {
   statement_id  = "AllowAPIGateway"
   action        = "lambda:InvokeFunction"

@@ -311,6 +311,58 @@ def get_board_status():
         return response(500, {"error": str(e)})
 
 
+def move_board_card(body):
+    """Move a card to a different column in board-status.json."""
+    try:
+        data = json.loads(body) if isinstance(body, str) else body
+        card_id = data.get("cardId")
+        target_column = data.get("targetColumn")
+        if not card_id or not target_column:
+            return response(400, {"error": "cardId and targetColumn required"})
+
+        # Read current board
+        obj = s3.get_object(Bucket=BUCKET, Key="board-status.json")
+        board = json.loads(obj["Body"].read().decode("utf-8"))
+
+        # Find and move the card
+        moved = False
+        for card in board.get("cards", []):
+            if card["id"] == card_id:
+                card["column"] = target_column
+                moved = True
+                break
+
+        # Also check archived cards — allow unarchiving
+        if not moved:
+            for card in board.get("archivedCards", []):
+                if card["id"] == card_id:
+                    card["column"] = target_column
+                    board["cards"].append(card)
+                    board["archivedCards"].remove(card)
+                    moved = True
+                    break
+
+        if not moved:
+            return response(404, {"error": "Card not found"})
+
+        # Save updated board
+        import datetime
+        board["updatedAt"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        s3.put_object(
+            Bucket=BUCKET,
+            Key="board-status.json",
+            Body=json.dumps(board).encode("utf-8"),
+            ContentType="application/json",
+        )
+        return response(200, {"moved": True, "cardId": card_id, "targetColumn": target_column})
+    except s3.exceptions.NoSuchKey:
+        return response(404, {"error": "Board not found"})
+    except (json.JSONDecodeError, AttributeError):
+        return response(400, {"error": "Invalid request body"})
+    except ClientError as e:
+        return response(500, {"error": str(e)})
+
+
 def handler(event, context):
     """Main Lambda handler — routes based on HTTP method and path."""
     method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
@@ -328,6 +380,10 @@ def handler(event, context):
     # Route: GET /status/board
     if method == "GET" and path == "/status/board":
         return get_board_status()
+
+    # Route: PUT /status/board/move
+    if method == "PUT" and path == "/status/board/move":
+        return move_board_card(event.get("body", "{}"))
 
     # Route: GET /config/files
     if method == "GET" and path == "/config/files":
