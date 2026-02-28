@@ -1,8 +1,14 @@
 # KMS key for S3 web app bucket. Requires a special policy for CloudFront
 
 resource "aws_kms_key" "web_app" {
-  description         = "KMS CMK for Web App S3 bucket"
-  enable_key_rotation = true
+  description             = "KMS CMK for Web App S3 bucket"
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+
+  lifecycle {
+    prevent_destroy = true
+  }
+
   tags = {
     "description" = "KMS CMK for web app S3 bucket"
   }
