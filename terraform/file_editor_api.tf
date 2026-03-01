@@ -140,6 +140,7 @@ resource "aws_lambda_function" "file_editor" {
       STATE_BUCKET_NAME = var.terraform_state_bucket
       PASSPHRASE_HASH   = var.command_center_passphrase_hash
       ALLOWED_ORIGIN    = "https://${local.domain_name}"
+      GITHUB_TOKEN      = var.github_token
     }
   }
 
@@ -263,6 +264,12 @@ resource "aws_apigatewayv2_route" "board_inbox_post" {
 resource "aws_apigatewayv2_route" "board_inbox_put" {
   api_id    = aws_apigatewayv2_api.file_editor.id
   route_key = "PUT /status/board/inbox"
+  target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
+}
+
+resource "aws_apigatewayv2_route" "ticket_detail" {
+  api_id    = aws_apigatewayv2_api.file_editor.id
+  route_key = "GET /status/ticket/{owner}/{repo}/{number}"
   target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
 }
 

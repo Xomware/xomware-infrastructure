@@ -6,13 +6,17 @@ Auth: X-Auth-Hash header must match the stored passphrase hash.
 
 import json
 import os
+import re
 import boto3
 from botocore.exceptions import ClientError
+from urllib.request import Request, urlopen
+from urllib.error import HTTPError, URLError
 
 s3 = boto3.client("s3")
 BUCKET = os.environ["BUCKET_NAME"]
 PASSPHRASE_HASH = os.environ["PASSPHRASE_HASH"]
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "https://xomware.com")
+GITHUB_TOKEN = os.environ.get("GITHUB_TOKEN", "")
 
 # Only allow .md files, no path traversal
 ALLOWED_EXTENSIONS = {".md", ".json"}
@@ -460,6 +464,83 @@ def move_board_card(body):
         return response(500, {"error": str(e)})
 
 
+def get_github_ticket(owner, repo, issue_number):
+    """Proxy GitHub API to fetch issue details for private repos."""
+    if not GITHUB_TOKEN:
+        return response(500, {"error": "GitHub token not configured"})
+
+    # Validate inputs
+    if not re.match(r'^[a-zA-Z0-9_.-]+$', owner) or not re.match(r'^[a-zA-Z0-9_.-]+$', repo):
+        return response(400, {"error": "Invalid owner or repo"})
+    try:
+        issue_number = int(issue_number)
+    except (ValueError, TypeError):
+        return response(400, {"error": "Invalid issue number"})
+
+    github_api = "https://api.github.com"
+    headers = {
+        "Accept": "application/vnd.github.v3+json",
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "User-Agent": "XomwareAPI/1.0",
+    }
+
+    # Fetch issue
+    try:
+        req = Request(f"{github_api}/repos/{owner}/{repo}/issues/{issue_number}", headers=headers)
+        with urlopen(req, timeout=10) as res:
+            issue = json.loads(res.read().decode())
+    except HTTPError as e:
+        return response(e.code, {"error": f"GitHub API error: {e.code}"})
+    except (URLError, TimeoutError):
+        return response(502, {"error": "Failed to reach GitHub API"})
+
+    # Fetch timeline for linked PRs (best effort)
+    linked_prs = []
+    try:
+        req = Request(f"{github_api}/repos/{owner}/{repo}/issues/{issue_number}/timeline", headers=headers)
+        with urlopen(req, timeout=10) as res:
+            events = json.loads(res.read().decode())
+        seen = set()
+        for event in events:
+            if event.get("event") == "cross-referenced" and event.get("source", {}).get("issue", {}).get("pull_request"):
+                pr = event["source"]["issue"]
+                if pr["number"] not in seen:
+                    seen.add(pr["number"])
+                    linked_prs.append({
+                        "number": pr["number"],
+                        "title": pr["title"],
+                        "html_url": pr["html_url"],
+                        "state": "merged" if pr.get("pull_request", {}).get("merged_at") else pr["state"],
+                        "merged": bool(pr.get("pull_request", {}).get("merged_at")),
+                        "draft": pr.get("draft", False),
+                    })
+    except Exception:
+        pass  # linked PRs are best-effort
+
+    result = {
+        "number": issue["number"],
+        "title": issue["title"],
+        "body": issue.get("body") or "",
+        "state": issue["state"],
+        "labels": [{"name": l["name"], "color": l["color"], "description": l.get("description", "")} for l in issue.get("labels", [])],
+        "assignee": {
+            "login": issue["assignee"]["login"],
+            "avatar_url": issue["assignee"]["avatar_url"],
+            "html_url": issue["assignee"]["html_url"],
+        } if issue.get("assignee") else None,
+        "assignees": [{"login": a["login"], "avatar_url": a["avatar_url"], "html_url": a["html_url"]} for a in issue.get("assignees", [])],
+        "created_at": issue["created_at"],
+        "updated_at": issue["updated_at"],
+        "html_url": issue["html_url"],
+        "repository_url": issue["repository_url"],
+        "linkedPRs": linked_prs,
+        "repoOwner": owner,
+        "repoName": repo,
+    }
+
+    return response(200, result)
+
+
 def handler(event, context):
     """Main Lambda handler — routes based on HTTP method and path."""
     method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
@@ -493,6 +574,11 @@ def handler(event, context):
     # Route: PUT /status/board/inbox
     if method == "PUT" and path == "/status/board/inbox":
         return update_board_inbox_item(event.get("body", "{}"))
+
+    # Route: GET /status/ticket/{owner}/{repo}/{number}
+    ticket_match = re.match(r'^/status/ticket/([^/]+)/([^/]+)/(\d+)$', path)
+    if method == "GET" and ticket_match:
+        return get_github_ticket(ticket_match.group(1), ticket_match.group(2), ticket_match.group(3))
 
     # Route: GET /config/files
     if method == "GET" and path == "/config/files":
