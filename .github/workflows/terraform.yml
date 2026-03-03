@@ -1,3 +1,4 @@
+# Terraform CI/CD — console-triggerable via workflow_dispatch
 name: Terraform
 
 on:
@@ -78,7 +79,7 @@ jobs:
             });
 
       - name: Terraform Apply
-        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         run: terraform apply -auto-approve -input=false
         env:
           TF_VAR_command_center_passphrase_hash: ${{ secrets.COMMAND_CENTER_PASSPHRASE_HASH }}
