@@ -116,6 +116,64 @@ resource "aws_iam_role_policy" "file_editor_s3" {
   })
 }
 
+# --- Meals Dashboard IAM (read-only access to meals infra) ---
+
+resource "aws_iam_role_policy" "file_editor_meals_dashboard" {
+  name = "${var.app_name}-file-editor-meals-dashboard"
+  role = aws_iam_role.file_editor_lambda.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:DescribeTable",
+        ]
+        Resource = [
+          "arn:aws:dynamodb:${var.aws_region}:${data.aws_caller_identity.web_app_account.account_id}:table/meals-*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:GetFunction",
+          "lambda:ListFunctions",
+        ]
+        Resource = [
+          "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.web_app_account.account_id}:function:meals-*"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:GetMetricStatistics",
+        ]
+        Resource = ["*"]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "apigateway:GET",
+        ]
+        Resource = [
+          "arn:aws:apigateway:${var.aws_region}::/restapis"
+        ]
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:DescribeLogStreams",
+          "logs:GetLogEvents",
+        ]
+        Resource = [
+          "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.web_app_account.account_id}:log-group:/aws/lambda/meals-*:*"
+        ]
+      }
+    ]
+  })
+}
+
 # --- Lambda Functions ---
 
 data "archive_file" "file_editor_lambda" {
@@ -223,6 +281,12 @@ resource "aws_apigatewayv2_route" "agent_status" {
 }
 
 # --- Infrastructure Dashboard Routes ---
+
+resource "aws_apigatewayv2_route" "infra_meals" {
+  api_id    = aws_apigatewayv2_api.file_editor.id
+  route_key = "GET /infra/meals"
+  target    = "integrations/${aws_apigatewayv2_integration.file_editor.id}"
+}
 
 resource "aws_apigatewayv2_route" "infra_workspaces" {
   api_id    = aws_apigatewayv2_api.file_editor.id

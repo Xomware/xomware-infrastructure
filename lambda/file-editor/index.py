@@ -143,6 +143,13 @@ def get_agent_status():
 
 STATE_BUCKET = os.environ.get("STATE_BUCKET_NAME", "")
 
+# AWS clients for meals dashboard
+dynamodb_client = boto3.client("dynamodb")
+lambda_client = boto3.client("lambda")
+cloudwatch = boto3.client("cloudwatch")
+apigateway = boto3.client("apigateway")
+logs_client = boto3.client("logs")
+
 # Terraform state attributes that may contain secrets — redact values
 SENSITIVE_ATTR_PATTERNS = {
     "password", "secret", "private_key", "access_key", "secret_key",
@@ -460,6 +467,143 @@ def move_board_card(body):
         return response(500, {"error": str(e)})
 
 
+def get_meals_dashboard():
+    """Aggregate meals infrastructure health: DynamoDB, Lambda, API Gateway, CloudWatch metrics."""
+    from datetime import datetime, timedelta, timezone
+    now = datetime.now(timezone.utc)
+    result = {
+        "timestamp": now.isoformat(),
+        "dynamodb": {"tables": []},
+        "lambdas": [],
+        "apiGateway": None,
+        "logs": [],
+        "stats": {"totalMeals": 0, "totalRatings": 0, "recentRatings": []},
+    }
+
+    # --- DynamoDB Tables ---
+    for table_name in ["meals-meals", "meals-meal-ratings"]:
+        try:
+            desc = dynamodb_client.describe_table(TableName=table_name)
+            t = desc["Table"]
+            result["dynamodb"]["tables"].append({
+                "name": table_name,
+                "status": t["TableStatus"],
+                "itemCount": t.get("ItemCount", 0),
+                "sizeBytes": t.get("TableSizeBytes", 0),
+                "readCapacity": t.get("ProvisionedThroughput", {}).get("ReadCapacityUnits", 0),
+                "writeCapacity": t.get("ProvisionedThroughput", {}).get("WriteCapacityUnits", 0),
+                "billingMode": t.get("BillingModeSummary", {}).get("BillingMode", "PROVISIONED"),
+            })
+        except Exception as e:
+            result["dynamodb"]["tables"].append({
+                "name": table_name,
+                "status": "ERROR",
+                "error": str(e),
+            })
+
+    # --- Stats from DynamoDB ---
+    try:
+        meals_table = result["dynamodb"]["tables"][0]
+        if meals_table.get("status") == "ACTIVE":
+            result["stats"]["totalMeals"] = meals_table.get("itemCount", 0)
+    except Exception:
+        pass
+    try:
+        ratings_table = result["dynamodb"]["tables"][1]
+        if ratings_table.get("status") == "ACTIVE":
+            result["stats"]["totalRatings"] = ratings_table.get("itemCount", 0)
+    except Exception:
+        pass
+
+    # --- Lambda Functions ---
+    lambda_names = [
+        "meals-meals-list", "meals-meals-create", "meals-meals-get",
+        "meals-meals-update", "meals-meals-delete", "meals-meals-rate",
+        "meals-meals-ratings", "meals-authorizer",
+    ]
+    for fn_name in lambda_names:
+        try:
+            fn = lambda_client.get_function(FunctionName=fn_name)
+            config = fn["Configuration"]
+            # Get invocation metrics (last 24h)
+            metrics = {}
+            for metric_name in ["Invocations", "Errors", "Duration"]:
+                try:
+                    stat = "Sum" if metric_name != "Duration" else "Average"
+                    cw_resp = cloudwatch.get_metric_statistics(
+                        Namespace="AWS/Lambda",
+                        MetricName=metric_name,
+                        Dimensions=[{"Name": "FunctionName", "Value": fn_name}],
+                        StartTime=now - timedelta(hours=24),
+                        EndTime=now,
+                        Period=86400,
+                        Statistics=[stat],
+                    )
+                    dps = cw_resp.get("Datapoints", [])
+                    metrics[metric_name.lower()] = dps[0].get(stat, 0) if dps else 0
+                except Exception:
+                    metrics[metric_name.lower()] = None
+
+            result["lambdas"].append({
+                "name": fn_name,
+                "status": config["State"],
+                "runtime": config.get("Runtime", ""),
+                "memoryMB": config.get("MemorySize", 0),
+                "timeout": config.get("Timeout", 0),
+                "lastModified": config.get("LastModified", ""),
+                "codeSize": config.get("CodeSize", 0),
+                "invocations24h": metrics.get("invocations", 0),
+                "errors24h": metrics.get("errors", 0),
+                "avgDurationMs": round(metrics.get("duration", 0) or 0, 1),
+            })
+        except lambda_client.exceptions.ResourceNotFoundException:
+            result["lambdas"].append({"name": fn_name, "status": "NOT_FOUND"})
+        except Exception as e:
+            result["lambdas"].append({"name": fn_name, "status": "ERROR", "error": str(e)})
+
+    # --- API Gateway ---
+    try:
+        apis = apigateway.get_rest_apis(limit=100)
+        for api in apis.get("items", []):
+            if "meals" in api["name"].lower():
+                result["apiGateway"] = {
+                    "id": api["id"],
+                    "name": api["name"],
+                    "createdDate": api["createdDate"].isoformat() if hasattr(api["createdDate"], "isoformat") else str(api["createdDate"]),
+                    "endpoint": f"https://api.meals.xomware.com/dev",
+                }
+                break
+    except Exception as e:
+        result["apiGateway"] = {"error": str(e)}
+
+    # --- Recent Lambda Logs (last invocation of meals-meals-list) ---
+    try:
+        log_group = "/aws/lambda/meals-meals-list"
+        streams = logs_client.describe_log_streams(
+            logGroupName=log_group,
+            orderBy="LastEventTime",
+            descending=True,
+            limit=1,
+        )
+        if streams.get("logStreams"):
+            stream_name = streams["logStreams"][0]["logStreamName"]
+            events = logs_client.get_log_events(
+                logGroupName=log_group,
+                logStreamName=stream_name,
+                limit=15,
+                startFromHead=False,
+            )
+            for ev in events.get("events", []):
+                result["logs"].append({
+                    "timestamp": datetime.fromtimestamp(ev["timestamp"] / 1000, tz=timezone.utc).isoformat(),
+                    "message": ev["message"].strip()[:500],
+                })
+    except Exception as e:
+        result["logs"].append({"error": str(e)})
+
+    return response(200, result)
+
+
 def handler(event, context):
     """Main Lambda handler — routes based on HTTP method and path."""
     method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
@@ -505,6 +649,10 @@ def handler(event, context):
     # Route: PUT /config/files/{filename}
     if method == "PUT" and "filename" in path_params:
         return put_file(path_params["filename"], event.get("body", "{}"))
+
+    # Route: GET /infra/meals
+    if method == "GET" and path == "/infra/meals":
+        return get_meals_dashboard()
 
     # Route: GET /infra/workspaces
     if method == "GET" and path == "/infra/workspaces":
