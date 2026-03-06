@@ -14,3 +14,5 @@ data "aws_caller_identity" "web_app_account" {
 # Updated Mon Mar  2 21:41:53 EST 2026
 
 # CI verification test - 2026-03-06
+
+# fix: deleted orphaned orchestration-alb to unblock SG destroy - Fri Mar  6 09:53:45 EST 2026
