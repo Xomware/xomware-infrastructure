@@ -8,7 +8,7 @@
 module "waf_cloudfront" {
   source = "git::https://github.com/Xomware/waf.git?ref=v2.0.0"
 
-  app_name = "xomware-shared-cloudfront"
+  app_name = "${var.app_name}-cloudfront"
   scope    = "CLOUDFRONT"
   tags     = local.standard_tags
 }
@@ -17,7 +17,7 @@ module "waf_cloudfront" {
 module "waf_regional" {
   source = "git::https://github.com/Xomware/waf.git?ref=v2.0.0"
 
-  app_name   = "xomware-shared-regional"
+  app_name   = "${var.app_name}-regional"
   scope      = "REGIONAL"
   rate_limit = 2000
   tags       = local.standard_tags
@@ -31,12 +31,10 @@ resource "aws_ssm_parameter" "shared_cloudfront_waf_arn" {
   name  = "/xomware/shared/cloudfront-waf-acl-arn"
   type  = "String"
   value = module.waf_cloudfront.web_acl_arn
-  tags  = local.standard_tags
 }
 
 resource "aws_ssm_parameter" "shared_regional_waf_arn" {
   name  = "/xomware/shared/regional-waf-acl-arn"
   type  = "String"
   value = module.waf_regional.web_acl_arn
-  tags  = local.standard_tags
 }
