@@ -32,6 +32,11 @@
 - GitHub Actions for CI
 - Deploy on merge to main/master (platform-specific)
 
+## Common Mistakes
+- Committing `.env` files
+- Over-engineering infra for personal projects — start simple, scale when needed
+- Forgetting to update `.env.example` when adding new env vars
+
 ## Deprecated
 - OpenClaw multi-agent framework is deprecated — use Claude Code native workflows
 - Do not create or reference OpenClaw patterns, dispatcher configs, or agent orchestrators

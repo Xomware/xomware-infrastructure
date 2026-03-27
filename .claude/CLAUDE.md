@@ -1,18 +1,31 @@
 # xomware-infrastructure
 
-> Main infrastructure repo — hosts all Xomware sites.
+> Core Terraform infrastructure for xomware.com platform hub.
 
 ## What This Is
-Terraform IaC for xomware.com and shared infra. S3, CloudFront, Route53, ACM.
+Terraform configuration for the root Xomware platform infrastructure. Manages the Route53 zone for xomware.com (shared by all Xomware apps), S3 + CloudFront frontend hosting, WAF, TLS certs, and encryption keys.
 
 ## Stack
-- Terraform, HCL, Python (Lambda), AWS
+- Terraform >= 1.0
+- AWS (Route53, S3, CloudFront, WAF, ACM, KMS)
+- S3 backend for state (bucket: xomware-terraform-state)
 
 ## Key Commands
 ```bash
-cd terraform && terraform init
-cd terraform && terraform plan
-cd terraform && terraform apply
+cd terraform && terraform init   # initialize
+terraform plan                   # preview changes
+terraform apply                  # apply changes
+```
+
+## Important Paths
+```
+terraform/          # all .tf files (10 total)
+  main.tf           # provider + backend config
+  route53.tf        # xomware.com DNS zone (SHARED)
+  s3.tf             # S3 + CloudFront hosting
+  waf.tf            # WAF rules
+  kms.tf            # encryption keys
+  acm.tf            # TLS certificates
 ```
 
 ## Project Config
@@ -22,9 +35,16 @@ github_project_number: 2
 github_project_owner: Xomware
 base_branch: master
 test_commands:
-  - echo "no tests configured"
+  - cd terraform && terraform validate
+build_commands:
+  - cd terraform && terraform plan -no-color
 ```
 
 ## Constraints
+- NO infrastructure changes without Dom's explicit approval
+- Route53 zone is shared — changes here affect DNS for ALL Xomware apps
+- State stored in S3 with DynamoDB locking (table: xomware-terraform-locks)
+- CI/CD via GitHub Actions — plan on PR, apply on merge to master
+- WAF module sourced from the shared `waf` repo
 
 ## Lessons
