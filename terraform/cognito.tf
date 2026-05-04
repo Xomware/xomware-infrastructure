@@ -286,9 +286,14 @@ resource "aws_cognito_user_group" "admin" {
 # AFTER your first signup (find your sub on the /profile page or by
 # decoding your JWT). Re-apply to grant.
 variable "admin_user_subs" {
-  description = "Cognito subs (UUIDs) to put in the admin group"
+  description = "Cognito usernames to put in the admin group. Native users: opaque UUID Username (== sub). Federated users: <provider>_<external-id>, e.g. Google_102793155679129129113594."
   type        = list(string)
-  default     = []
+  default = [
+    # Dom's Google-federated identity. Cognito Username, not the sub —
+    # aws_cognito_user_in_group.username takes the Username field, which
+    # for federated users is `<provider>_<external-id>`.
+    "Google_102793155679129129113594",
+  ]
 }
 
 resource "aws_cognito_user_in_group" "admins" {
