@@ -1,12 +1,24 @@
 'use strict';
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
+const {
+  DynamoDBDocumentClient,
+  QueryCommand,
+  UpdateCommand,
+} = require('@aws-sdk/lib-dynamodb');
 
 const region = process.env.AWS_REGION || 'us-east-1';
 const TABLE = process.env.USERS_TABLE_NAME;
 const AVATARS_BUCKET = process.env.AVATARS_BUCKET_NAME || '';
 const CDN_HOST = 'cdn.xomware.com';
+
+const HANDLE_REGEX = /^[a-z0-9_]{3,20}$/;
+const RESERVED_HANDLES = new Set([
+  'admin', 'system', 'xomware', 'xomappetit', 'support',
+  'chef', 'diner', 'help', 'about', 'privacy', 'terms',
+  'api', 'auth', 'profile', 'login', 'signin', 'signup',
+  'me', 'you', 'user', 'users',
+]);
 
 const docClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region }), {
   marshallOptions: { removeUndefinedValues: true },
@@ -88,8 +100,42 @@ exports.handler = async (event) => {
     }
   }
 
+  if (Object.prototype.hasOwnProperty.call(body, 'preferredUsername')) {
+    const pu = body.preferredUsername;
+    if (typeof pu !== 'string') {
+      errors.push('preferredUsername must be a string');
+    } else {
+      const handle = pu.trim().toLowerCase();
+      if (!HANDLE_REGEX.test(handle)) {
+        errors.push('preferredUsername must be 3-20 lowercase letters, numbers, or underscores');
+      } else if (RESERVED_HANDLES.has(handle)) {
+        errors.push('preferredUsername is reserved');
+      } else {
+        updates.preferredUsername = handle;
+      }
+    }
+  }
+
   if (errors.length > 0) return json(400, { error: 'validation_failed', details: errors });
   if (Object.keys(updates).length === 0) return json(400, { error: 'no_fields_to_update' });
+
+  // Uniqueness check on preferredUsername — handle-index GSI lookup.
+  // Race window between this query and the conditional update is tiny;
+  // the conditional update is the source of truth.
+  if (updates.preferredUsername) {
+    const { Items = [] } = await docClient.send(
+      new QueryCommand({
+        TableName: TABLE,
+        IndexName: 'handle-index',
+        KeyConditionExpression: 'preferredUsername = :pu',
+        ExpressionAttributeValues: { ':pu': updates.preferredUsername },
+        Limit: 1,
+      }),
+    );
+    if (Items.length > 0 && Items[0].userId !== userId) {
+      return json(409, { error: 'handle_taken' });
+    }
+  }
 
   const setExpr = [];
   const exprAttrNames = {};
