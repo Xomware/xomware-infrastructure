@@ -48,28 +48,34 @@ if [[ -z "${CLIENT_SECRET}" ]]; then
   exit 1
 fi
 
+# SSM put-parameter rejects --tags and --overwrite together. Write the
+# value first (idempotent via --overwrite), then attach tags separately
+# (also idempotent via add-tags-to-resource).
+
+put_param() {
+  local name="$1" type="$2" value="$3"
+  aws ssm put-parameter \
+    --region "${REGION}" \
+    --name "${name}" \
+    --type "${type}" \
+    --value "${value}" \
+    --overwrite \
+    >/dev/null
+  aws ssm add-tags-to-resource \
+    --region "${REGION}" \
+    --resource-type "Parameter" \
+    --resource-id "${name}" \
+    --tags 'Key=app,Value=xomware' 'Key=purpose,Value=google-oauth' \
+    >/dev/null
+}
+
 echo
 echo "Writing ${PARAM_ID} (String)..."
-aws ssm put-parameter \
-  --region "${REGION}" \
-  --name "${PARAM_ID}" \
-  --type "String" \
-  --value "${CLIENT_ID}" \
-  --overwrite \
-  --tags 'Key=app,Value=xomware' 'Key=purpose,Value=google-oauth' \
-  >/dev/null
+put_param "${PARAM_ID}" "String" "${CLIENT_ID}"
 
 echo "Writing ${PARAM_SECRET} (SecureString)..."
-aws ssm put-parameter \
-  --region "${REGION}" \
-  --name "${PARAM_SECRET}" \
-  --type "SecureString" \
-  --value "${CLIENT_SECRET}" \
-  --overwrite \
-  --tags 'Key=app,Value=xomware' 'Key=purpose,Value=google-oauth' \
-  >/dev/null
+put_param "${PARAM_SECRET}" "SecureString" "${CLIENT_SECRET}"
 
-# Tags only apply on first put — silently no-op on update. That's fine.
 unset CLIENT_SECRET
 
 echo
