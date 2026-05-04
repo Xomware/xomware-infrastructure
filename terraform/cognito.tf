@@ -18,14 +18,19 @@
 resource "aws_cognito_user_pool" "xomware_users" {
   name = "xomware-users"
 
-  # Opaque UUID Username supplied at signup; sign-in via aliases.
-  alias_attributes         = ["email", "preferred_username"]
+  # Opaque UUID Username supplied at signup; sign-in via email alias only.
+  # preferred_username is INTENTIONALLY NOT an alias attribute and NOT in
+  # the required schema below — Cognito refuses to set alias attrs at
+  # SignUp time (reserved for confirmed accounts) AND requires any
+  # required-schema attr at SignUp. The combination is a catch-22.
+  # Solution: handles live exclusively in DynamoDB
+  # (xomware-users.preferredUsername). Uniqueness enforced by app logic
+  # via the handle-index GSI.
+  alias_attributes         = ["email"]
   auto_verified_attributes = ["email"]
 
-  # Step 1 of a two-PR fix: flip deletion_protection to INACTIVE first
-  # (in-place update). Step 2 (follow-up PR) does the schema/alias removal
-  # which forces pool replacement — needs INACTIVE in AWS state to succeed.
-  # Re-enable after the schema fix lands and pool is verified.
+  # INACTIVE during the catch-22 fix sequence. Will be re-enabled in a
+  # follow-up PR once the new pool is verified working with signup.
   deletion_protection = "INACTIVE"
 
   user_pool_tier = "ESSENTIALS"
@@ -58,8 +63,8 @@ resource "aws_cognito_user_pool" "xomware_users" {
     email_sending_account = "COGNITO_DEFAULT"
   }
 
-  # Required schema attributes. Both required + mutable.
-  # preferred_username uniqueness is enforced via alias_attributes above.
+  # Required schema attributes. Only email is enforced at the Cognito layer.
+  # Handle (preferredUsername) lives in DynamoDB — see comment on alias_attributes.
   schema {
     name                     = "email"
     attribute_data_type      = "String"
@@ -70,19 +75,6 @@ resource "aws_cognito_user_pool" "xomware_users" {
     string_attribute_constraints {
       min_length = 1
       max_length = 256
-    }
-  }
-
-  schema {
-    name                     = "preferred_username"
-    attribute_data_type      = "String"
-    required                 = true
-    mutable                  = true
-    developer_only_attribute = false
-
-    string_attribute_constraints {
-      min_length = 3
-      max_length = 20
     }
   }
 
