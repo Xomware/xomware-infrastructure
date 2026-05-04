@@ -259,3 +259,20 @@ resource "aws_cognito_user_group" "admin" {
   description  = "Xomware admin group — full access to /admin portal"
   precedence   = 1
 }
+
+# Admin membership — lift each Cognito sub from `var.admin_user_subs` into
+# the admin group. Default list is empty; populate via terraform.tfvars
+# AFTER your first signup (find your sub on the /profile page or by
+# decoding your JWT). Re-apply to grant.
+variable "admin_user_subs" {
+  description = "Cognito subs (UUIDs) to put in the admin group"
+  type        = list(string)
+  default     = []
+}
+
+resource "aws_cognito_user_in_group" "admins" {
+  for_each     = toset(var.admin_user_subs)
+  user_pool_id = aws_cognito_user_pool.xomware_users.id
+  group_name   = aws_cognito_user_group.admin.name
+  username     = each.value
+}
