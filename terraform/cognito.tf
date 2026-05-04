@@ -116,8 +116,12 @@ resource "aws_cognito_user_pool" "xomware_users" {
   # Phase 3: PostConfirmation Lambda trigger writes the user row to
   # xomware-users on email-verified signup. Per AWS provider docs this is an
   # in-place update (NOT replacement). See lambdas_users.tf for the Lambda.
+  #
+  # Phase 5: PostAuthentication trigger writes a `signin` event to
+  # xomware-events for the /admin portal audit log.
   lambda_config {
-    post_confirmation = aws_lambda_function.users["create"].arn
+    post_confirmation    = aws_lambda_function.users["create"].arn
+    post_authentication  = aws_lambda_function.auth_track.arn
   }
 
   tags = merge(local.standard_tags, {
@@ -136,6 +140,15 @@ resource "aws_lambda_permission" "users_create_cognito" {
   statement_id  = "AllowCognitoInvokeUsersCreate"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.users["create"].function_name
+  principal     = "cognito-idp.amazonaws.com"
+  source_arn    = aws_cognito_user_pool.xomware_users.arn
+}
+
+# Allow Cognito to invoke the auth-track PostAuthentication lambda.
+resource "aws_lambda_permission" "auth_track_cognito" {
+  statement_id  = "AllowCognitoInvokeAuthTrack"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.auth_track.function_name
   principal     = "cognito-idp.amazonaws.com"
   source_arn    = aws_cognito_user_pool.xomware_users.arn
 }
@@ -245,4 +258,21 @@ resource "aws_cognito_user_group" "admin" {
   user_pool_id = aws_cognito_user_pool.xomware_users.id
   description  = "Xomware admin group — full access to /admin portal"
   precedence   = 1
+}
+
+# Admin membership — lift each Cognito sub from `var.admin_user_subs` into
+# the admin group. Default list is empty; populate via terraform.tfvars
+# AFTER your first signup (find your sub on the /profile page or by
+# decoding your JWT). Re-apply to grant.
+variable "admin_user_subs" {
+  description = "Cognito subs (UUIDs) to put in the admin group"
+  type        = list(string)
+  default     = []
+}
+
+resource "aws_cognito_user_in_group" "admins" {
+  for_each     = toset(var.admin_user_subs)
+  user_pool_id = aws_cognito_user_pool.xomware_users.id
+  group_name   = aws_cognito_user_group.admin.name
+  username     = each.value
 }

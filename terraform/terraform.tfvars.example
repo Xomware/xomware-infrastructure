@@ -2,3 +2,7 @@
 # terraform.tfvars is gitignored — never commit secrets
 
 command_center_passphrase_hash = ""
+
+# Cognito subs for the /admin portal. Find your sub on /profile or by
+# decoding your JWT (jwt.io). Re-apply after you set this.
+# admin_user_subs = ["00000000-0000-0000-0000-000000000000"]
