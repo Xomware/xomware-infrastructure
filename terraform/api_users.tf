@@ -28,11 +28,16 @@ resource "aws_route53_record" "users_api_cert_validation" {
     }
   }
 
-  zone_id = data.aws_route53_zone.web_zone.zone_id
-  name    = each.value.name
-  type    = each.value.type
-  records = [each.value.record]
-  ttl     = 60
+  # The old file-editor cert (renamed to editor-api in this same apply) and
+  # the new users_api cert both use api.xomware.com → identical _HASH.api
+  # validation CNAME. Allow overwrite so the new record replaces the old
+  # one cleanly during the cutover instead of erroring on "already exists".
+  allow_overwrite = true
+  zone_id         = data.aws_route53_zone.web_zone.zone_id
+  name            = each.value.name
+  type            = each.value.type
+  records         = [each.value.record]
+  ttl             = 60
 }
 
 resource "aws_acm_certificate_validation" "users_api" {
