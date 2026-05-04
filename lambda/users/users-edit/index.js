@@ -3,6 +3,7 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const {
   DynamoDBDocumentClient,
+  GetCommand,
   QueryCommand,
   UpdateCommand,
 } = require('@aws-sdk/lib-dynamodb');
@@ -13,6 +14,8 @@ const AVATARS_BUCKET = process.env.AVATARS_BUCKET_NAME || '';
 const CDN_HOST = 'cdn.xomware.com';
 
 const HANDLE_REGEX = /^[a-z0-9_]{3,20}$/;
+const HEX_COLOR_REGEX = /^#[0-9a-f]{6}$/i;
+const AVATAR_HISTORY_MAX = 6;
 const RESERVED_HANDLES = new Set([
   'admin', 'system', 'xomware', 'xomappetit', 'support',
   'chef', 'diner', 'help', 'about', 'privacy', 'terms',
@@ -88,6 +91,20 @@ exports.handler = async (event) => {
       errors.push('avatarUrl host not allowed');
     } else {
       updates.avatarUrl = av;
+      // Picking a photo clears any stock-color choice — they're mutually
+      // exclusive at the render layer.
+      if (av) updates.avatarStockColor = null;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, 'avatarStockColor')) {
+    const sc = body.avatarStockColor;
+    if (sc !== null && (typeof sc !== 'string' || !HEX_COLOR_REGEX.test(sc))) {
+      errors.push('avatarStockColor must be a 6-digit hex (#rrggbb) or null');
+    } else {
+      updates.avatarStockColor = sc;
+      // Picking a stock color clears the photo URL — mutually exclusive.
+      if (sc) updates.avatarUrl = null;
     }
   }
 
@@ -134,6 +151,26 @@ exports.handler = async (event) => {
     );
     if (Items.length > 0 && Items[0].userId !== userId) {
       return json(409, { error: 'handle_taken' });
+    }
+  }
+
+  // Avatar history — when the user picks a NEW uploaded URL, prepend the
+  // CURRENT avatarUrl to the history list (dedupe, cap). Stock-color
+  // changes don't touch history (only URLs do).
+  if (typeof updates.avatarUrl === 'string' && updates.avatarUrl) {
+    const { Item: current } = await docClient.send(
+      new GetCommand({ TableName: TABLE, Key: { userId } }),
+    );
+    const prev = current?.avatarUrl;
+    const history = Array.isArray(current?.avatarHistory) ? current.avatarHistory : [];
+    if (prev && prev !== updates.avatarUrl) {
+      const next = [prev, ...history.filter((u) => u !== prev && u !== updates.avatarUrl)]
+        .slice(0, AVATAR_HISTORY_MAX);
+      updates.avatarHistory = next;
+    } else if (history.includes(updates.avatarUrl)) {
+      // Re-selecting an old avatar from history — just dedupe it out so
+      // the slot freed for the next new upload.
+      updates.avatarHistory = history.filter((u) => u !== updates.avatarUrl);
     }
   }
 
