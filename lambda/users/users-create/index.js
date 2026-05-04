@@ -29,9 +29,16 @@ exports.handler = async (event) => {
     }
 
     const attrs = (event.request && event.request.userAttributes) || {};
+    const meta = (event.request && event.request.clientMetadata) || {};
     const userId = attrs.sub;
     const email = attrs.email;
-    const preferredUsername = attrs.preferred_username || attrs['cognito:username'];
+    // preferred_username is an alias attribute, so the frontend cannot pass it
+    // as a userAttribute during SignUp (Cognito only sets aliases on confirmed
+    // accounts). It comes through here via clientMetadata. Fall back to the
+    // userAttribute for any flow that does set it (e.g. federated sign-up,
+    // pick-handle-after-confirm).
+    const preferredUsername =
+      meta.preferred_username || attrs.preferred_username || null;
 
     if (!userId) {
       console.error('users-create: no sub in userAttributes', attrs);
