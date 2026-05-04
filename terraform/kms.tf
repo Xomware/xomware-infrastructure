@@ -65,7 +65,10 @@ resource "aws_kms_key" "web_app" {
           "Resource" : "*",
           "Condition" : {
             "StringEquals" : {
-              "aws:SourceArn" : module.web.cloudfront_distribution_arn
+              "aws:SourceArn" : [
+                module.web.cloudfront_distribution_arn,
+                aws_cloudfront_distribution.avatars.arn,
+              ]
             }
           }
         }

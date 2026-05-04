@@ -274,10 +274,14 @@ resource "aws_lambda_permission" "file_editor_apigw" {
   source_arn    = "${aws_apigatewayv2_api.file_editor.execution_arn}/*/*"
 }
 
-# --- Custom Domain (api.xomware.com) ---
+# --- Custom Domain (editor-api.xomware.com) ---
+# Migrated from api.xomware.com -> editor-api.xomware.com so the
+# api.xomware.com hostname can host the new shared users service
+# (see api_users.tf). Internal-only Command Center traffic; brief
+# unavailability during DNS+CF propagation is acceptable.
 
 resource "aws_acm_certificate" "api" {
-  domain_name       = "api.${local.domain_name}"
+  domain_name       = "editor-api.${local.domain_name}"
   validation_method = "DNS"
   tags              = local.standard_tags
 
@@ -308,7 +312,7 @@ resource "aws_acm_certificate_validation" "api" {
 }
 
 resource "aws_apigatewayv2_domain_name" "file_editor" {
-  domain_name = "api.${local.domain_name}"
+  domain_name = "editor-api.${local.domain_name}"
 
   domain_name_configuration {
     certificate_arn = aws_acm_certificate_validation.api.certificate_arn
@@ -327,7 +331,7 @@ resource "aws_apigatewayv2_api_mapping" "file_editor" {
 
 resource "aws_route53_record" "api" {
   zone_id = data.aws_route53_zone.web_zone.zone_id
-  name    = "api.${local.domain_name}"
+  name    = "editor-api.${local.domain_name}"
   type    = "A"
 
   alias {
@@ -340,7 +344,7 @@ resource "aws_route53_record" "api" {
 # --- Outputs ---
 
 output "file_editor_api_url" {
-  value       = "https://api.${local.domain_name}/config"
+  value       = "https://editor-api.${local.domain_name}/config"
   description = "File Editor API base URL"
 }
 
