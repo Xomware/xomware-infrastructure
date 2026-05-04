@@ -85,6 +85,13 @@ resource "aws_cognito_user_pool" "xomware_users" {
   # Self-service signup is implicitly enabled (allow_admin_create_user_only = false).
   # No custom attributes — profile data lives in DynamoDB (Phase 3).
 
+  # Phase 3: PostConfirmation Lambda trigger writes the user row to
+  # xomware-users on email-verified signup. Per AWS provider docs this is an
+  # in-place update (NOT replacement). See lambdas_users.tf for the Lambda.
+  lambda_config {
+    post_confirmation = aws_lambda_function.users["create"].arn
+  }
+
   tags = merge(local.standard_tags, {
     "environment" = "shared"
     "owner"       = "xomware"
@@ -94,6 +101,15 @@ resource "aws_cognito_user_pool" "xomware_users" {
   lifecycle {
     ignore_changes = [tags_all]
   }
+}
+
+# Allow Cognito to invoke the users-create PostConfirmation lambda.
+resource "aws_lambda_permission" "users_create_cognito" {
+  statement_id  = "AllowCognitoInvokeUsersCreate"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.users["create"].function_name
+  principal     = "cognito-idp.amazonaws.com"
+  source_arn    = aws_cognito_user_pool.xomware_users.arn
 }
 
 # Hosted UI domain (Amazon-hosted prefix).
