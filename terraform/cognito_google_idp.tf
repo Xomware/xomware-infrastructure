@@ -17,7 +17,9 @@
 #        https://xomware.com
 #        https://xn--xomapptit-g4a.xomware.com
 #        https://xomappetit.xomware.com
-#   4. Save, then write the credentials to SSM:
+#   4. Save, then write the credentials to SSM. Easiest path:
+#        ./scripts/setup-google-oauth-ssm.sh
+#      Or by hand:
 #        /xomware/shared/google-oauth/client-id     (String)
 #        /xomware/shared/google-oauth/client-secret (SecureString)
 #
