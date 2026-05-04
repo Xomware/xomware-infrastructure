@@ -63,6 +63,38 @@ resource "aws_cognito_user_pool" "xomware_users" {
     email_sending_account = "COGNITO_DEFAULT"
   }
 
+  # Branded verification email. Default Cognito sender (SES customization
+  # is a follow-up — to put noreply@xomware.com on the From line we need
+  # to verify the xomware.com domain in SES first). HTML body only; the
+  # recipient's client falls back to the {####} code in plaintext if HTML
+  # doesn't render.
+  verification_message_template {
+    default_email_option = "CONFIRM_WITH_CODE"
+    email_subject        = "Verify your Xomware account"
+    email_message        = <<-HTML
+      <!DOCTYPE html>
+      <html>
+      <body style="margin:0;padding:0;background:#0a0a0b;font-family:-apple-system,system-ui,sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 20px;background:#0a0a0b;">
+          <tr><td align="center">
+            <table width="480" cellpadding="0" cellspacing="0" style="background:#18181b;border:1px solid #27272a;border-radius:12px;padding:32px;text-align:left;">
+              <tr><td>
+                <div style="font-size:24px;font-weight:900;letter-spacing:-0.02em;color:#ff6b6b;">XOMWARE</div>
+                <div style="height:3px;width:48px;background:linear-gradient(90deg,#ff6b6b,#ff7b1c);border-radius:2px;margin:8px 0 24px 0;"></div>
+                <h2 style="margin:0 0 12px 0;color:#fafafa;font-size:20px;font-weight:700;">Verify your email</h2>
+                <p style="margin:0 0 20px 0;color:#a1a1aa;font-size:15px;line-height:1.5;">Welcome. Use the code below to finish creating your Xomware account:</p>
+                <div style="background:#0a0a0b;border:1px solid #ff6b6b33;border-radius:8px;padding:20px;text-align:center;font-size:32px;letter-spacing:0.3em;color:#ff6b6b;font-weight:700;font-family:ui-monospace,monospace;">{####}</div>
+                <p style="margin:24px 0 0 0;color:#52525b;font-size:13px;line-height:1.5;">Code expires in 24 hours. If you didn't sign up, ignore this email.</p>
+              </td></tr>
+            </table>
+            <p style="margin:24px 0 0 0;color:#52525b;font-size:11px;text-align:center;">Xomware &middot; xomware.com</p>
+          </td></tr>
+        </table>
+      </body>
+      </html>
+    HTML
+  }
+
   # Required schema attributes. Only email is enforced at the Cognito layer.
   # Handle (preferredUsername) lives in DynamoDB — see comment on alias_attributes.
   schema {
