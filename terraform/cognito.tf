@@ -286,9 +286,15 @@ resource "aws_cognito_user_group" "admin" {
 # AFTER your first signup (find your sub on the /profile page or by
 # decoding your JWT). Re-apply to grant.
 variable "admin_user_subs" {
-  description = "Cognito usernames to put in the admin group. Use the opaque UUID Username for native users (same as the JWT sub claim). Federated users get linked to a native account by PreSignUp_ExternalProvider, so even Google sign-ins resolve to the native Username — never the `Google_<id>` form."
+  description = "Cognito usernames to put in the admin group. Native users: opaque UUID Username (== the JWT sub claim). Federated users that didn't get linked to a native account stand on their own with `<provider>_<external-id>` — that form IS a valid Username here."
   type        = list(string)
-  default     = []
+  default = [
+    # Dom — Google-federated identity (no pre-existing native account to
+    # link to, so this is a standalone federated user). Confirmed via the
+    # Cognito console: Username = Google_102793155679129233594,
+    # sub = f4e80448-2061-7059-0c26-d0fd91863568.
+    "Google_102793155679129233594",
+  ]
 }
 
 resource "aws_cognito_user_in_group" "admins" {
