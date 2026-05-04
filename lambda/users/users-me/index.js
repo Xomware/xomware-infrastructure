@@ -102,6 +102,16 @@ exports.handler = async (event) => {
     return json(200, row);
   } catch (err) {
     console.error('users-me error', err);
-    return json(500, { error: 'internal_error' });
+    // TEMPORARY: surface the actual error so we can diagnose without
+    // CloudWatch access. Revert to generic `internal_error` once stable.
+    return json(500, {
+      error: 'internal_error',
+      debug: {
+        name: err && err.name,
+        message: err && err.message,
+        // First 5 lines of stack only — keep it readable.
+        stack: err && err.stack && err.stack.split('\n').slice(0, 5).join('\n'),
+      },
+    });
   }
 };
