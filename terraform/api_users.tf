@@ -75,6 +75,21 @@ locals {
     },
   ]
 
+  admin_endpoints = [
+    {
+      name        = "events-list"
+      path_part   = "events-list"
+      http_method = "POST"
+      invoke_arn  = aws_lambda_function.admin["events_list"].invoke_arn
+    },
+    {
+      name        = "cost-summary"
+      path_part   = "cost-summary"
+      http_method = "POST"
+      invoke_arn  = aws_lambda_function.admin["cost_summary"].invoke_arn
+    },
+  ]
+
   users_allow_origins = join(",", [
     "https://xomware.com",
     "https://xn--xomapptit-g4a.xomware.com",
@@ -114,6 +129,10 @@ module "users_api" {
     users = {
       path_prefix = "users"
       endpoints   = local.users_endpoints
+    }
+    admin = {
+      path_prefix = "admin"
+      endpoints   = local.admin_endpoints
     }
   }
 }

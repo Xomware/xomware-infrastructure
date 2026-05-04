@@ -45,10 +45,12 @@ locals {
   }
 
   users_lambda_env = {
-    USERS_TABLE_NAME    = aws_dynamodb_table.users.id
-    AVATARS_BUCKET_NAME = aws_s3_bucket.avatars.id
-    AVATARS_CDN_URL     = "https://cdn.${local.domain_name}"
-    AVATARS_KMS_KEY_ARN = aws_kms_alias.web_app.target_key_arn
+    USERS_TABLE_NAME       = aws_dynamodb_table.users.id
+    AVATARS_BUCKET_NAME    = aws_s3_bucket.avatars.id
+    AVATARS_CDN_URL        = "https://cdn.${local.domain_name}"
+    AVATARS_KMS_KEY_ARN    = aws_kms_alias.web_app.target_key_arn
+    EVENTS_TABLE_NAME      = aws_dynamodb_table.events.id
+    EVENTS_RETENTION_DAYS  = tostring(var.events_retention_days)
   }
 }
 
@@ -91,6 +93,13 @@ data "aws_iam_policy_document" "users_lambda" {
       aws_dynamodb_table.users.arn,
       "${aws_dynamodb_table.users.arn}/index/*",
     ]
+  }
+
+  # users-create writes signup events on PostConfirmation.
+  statement {
+    effect    = "Allow"
+    actions   = ["dynamodb:PutItem"]
+    resources = [aws_dynamodb_table.events.arn]
   }
 
   # S3 - presigned PUT signing requires the signer's role to have PutObject

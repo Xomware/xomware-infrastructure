@@ -116,8 +116,12 @@ resource "aws_cognito_user_pool" "xomware_users" {
   # Phase 3: PostConfirmation Lambda trigger writes the user row to
   # xomware-users on email-verified signup. Per AWS provider docs this is an
   # in-place update (NOT replacement). See lambdas_users.tf for the Lambda.
+  #
+  # Phase 5: PostAuthentication trigger writes a `signin` event to
+  # xomware-events for the /admin portal audit log.
   lambda_config {
-    post_confirmation = aws_lambda_function.users["create"].arn
+    post_confirmation    = aws_lambda_function.users["create"].arn
+    post_authentication  = aws_lambda_function.auth_track.arn
   }
 
   tags = merge(local.standard_tags, {
@@ -136,6 +140,15 @@ resource "aws_lambda_permission" "users_create_cognito" {
   statement_id  = "AllowCognitoInvokeUsersCreate"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.users["create"].function_name
+  principal     = "cognito-idp.amazonaws.com"
+  source_arn    = aws_cognito_user_pool.xomware_users.arn
+}
+
+# Allow Cognito to invoke the auth-track PostAuthentication lambda.
+resource "aws_lambda_permission" "auth_track_cognito" {
+  statement_id  = "AllowCognitoInvokeAuthTrack"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.auth_track.function_name
   principal     = "cognito-idp.amazonaws.com"
   source_arn    = aws_cognito_user_pool.xomware_users.arn
 }
