@@ -42,15 +42,28 @@ locals {
       timeout     = 10
       memory      = 256
     }
+    presignup_link = {
+      name        = "users-presignup-link"
+      description = "Cognito PreSignUp: link federated (Google) identity to existing native user when emails match"
+      source_dir  = "${path.module}/../lambda/users/users-presignup-link"
+      timeout     = 10
+      memory      = 256
+    }
   }
 
   users_lambda_env = {
-    USERS_TABLE_NAME       = aws_dynamodb_table.users.id
-    AVATARS_BUCKET_NAME    = aws_s3_bucket.avatars.id
-    AVATARS_CDN_URL        = "https://cdn.${local.domain_name}"
-    AVATARS_KMS_KEY_ARN    = aws_kms_alias.web_app.target_key_arn
-    EVENTS_TABLE_NAME      = aws_dynamodb_table.events.id
-    EVENTS_RETENTION_DAYS  = tostring(var.events_retention_days)
+    USERS_TABLE_NAME      = aws_dynamodb_table.users.id
+    AVATARS_BUCKET_NAME   = aws_s3_bucket.avatars.id
+    AVATARS_CDN_URL       = "https://cdn.${local.domain_name}"
+    AVATARS_KMS_KEY_ARN   = aws_kms_alias.web_app.target_key_arn
+    EVENTS_TABLE_NAME     = aws_dynamodb_table.events.id
+    EVENTS_RETENTION_DAYS = tostring(var.events_retention_days)
+    # The pool's lambda_config references the presignup_link Lambda's
+    # ARN; the Lambda must NOT reference the pool's id directly here or
+    # we get a Terraform dependency cycle. Instead, pass the SSM
+    # parameter NAME (a static string) and read the pool ID at cold
+    # start. See users-presignup-link/index.js.
+    USER_POOL_ID_SSM_PARAM = "/xomware/shared/cognito/user-pool-id"
   }
 }
 
@@ -123,6 +136,26 @@ data "aws_iam_policy_document" "users_lambda" {
       "kms:DescribeKey",
     ]
     resources = [aws_kms_alias.web_app.target_key_arn]
+  }
+
+  # Cognito - PreSignUp link trigger (users-presignup-link) needs to look up
+  # native users by email and link a federated identity to the matching
+  # native account. Scoped to the shared xomware-users pool only.
+  statement {
+    effect = "Allow"
+    actions = [
+      "cognito-idp:ListUsers",
+      "cognito-idp:AdminLinkProviderForUser",
+    ]
+    resources = [aws_cognito_user_pool.xomware_users.arn]
+  }
+
+  # SSM - PreSignUp Lambda reads the user pool id from SSM at cold start
+  # (TF dependency cycle prevents passing it through env directly).
+  statement {
+    effect    = "Allow"
+    actions   = ["ssm:GetParameter"]
+    resources = [aws_ssm_parameter.cognito_user_pool_id.arn]
   }
 }
 
