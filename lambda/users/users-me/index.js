@@ -36,19 +36,24 @@ function getClaims(event) {
 // users whose Cognito flow skips PostConfirmation (Google sign-up never
 // fires it). Native users get their row from the users-create
 // PostConfirmation trigger and never hit this path.
+//
+// `preferredUsername` is the hash key of the `handle-index` GSI — DynamoDB
+// rejects NULL on indexed keys, so we OMIT the attribute entirely when
+// the user hasn't picked a handle yet (sparse GSI). Same for any future
+// indexed attributes — only set them when populated.
 function rowFromClaims(claims) {
   const now = new Date().toISOString();
-  const fullName = claims.name || [claims.given_name, claims.family_name].filter(Boolean).join(' ') || null;
-  return {
+  const fullName = claims.name || [claims.given_name, claims.family_name].filter(Boolean).join(' ') || '';
+  const row = {
     userId: claims.sub,
-    email: claims.email || null,
-    preferredUsername: null,
-    displayName: fullName,
-    avatarUrl: claims.picture || null,
     profileVisibility: 'public',
     createdAt: now,
     lastSeenAt: now,
   };
+  if (claims.email) row.email = claims.email;
+  if (fullName) row.displayName = fullName;
+  if (claims.picture) row.avatarUrl = claims.picture;
+  return row;
 }
 
 exports.handler = async (event) => {
@@ -102,16 +107,6 @@ exports.handler = async (event) => {
     return json(200, row);
   } catch (err) {
     console.error('users-me error', err);
-    // TEMPORARY: surface the actual error so we can diagnose without
-    // CloudWatch access. Revert to generic `internal_error` once stable.
-    return json(500, {
-      error: 'internal_error',
-      debug: {
-        name: err && err.name,
-        message: err && err.message,
-        // First 5 lines of stack only — keep it readable.
-        stack: err && err.stack && err.stack.split('\n').slice(0, 5).join('\n'),
-      },
-    });
+    return json(500, { error: 'internal_error' });
   }
 };
