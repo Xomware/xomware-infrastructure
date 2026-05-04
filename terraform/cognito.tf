@@ -18,11 +18,20 @@
 resource "aws_cognito_user_pool" "xomware_users" {
   name = "xomware-users"
 
-  # Opaque UUID Username supplied at signup; sign-in via aliases.
-  alias_attributes         = ["email", "preferred_username"]
+  # Opaque UUID Username supplied at signup; sign-in via email alias only.
+  # Note on preferred_username: NOT an alias attribute and NOT in the
+  # required schema. Cognito treats alias attributes as "claimable on
+  # confirmed accounts only" (rejects them at SignUp), but ALSO requires
+  # any schema-marked-required attribute at SignUp — a catch-22 if you
+  # mark preferred_username both required AND alias. Solution: handles
+  # live exclusively in DynamoDB (xomware-users.preferredUsername),
+  # uniqueness enforced by app logic via the handle-index GSI.
+  alias_attributes         = ["email"]
   auto_verified_attributes = ["email"]
 
-  deletion_protection = "ACTIVE"
+  # INACTIVE temporarily to allow this schema fix (pool replacement).
+  # Flip back to ACTIVE in a follow-up PR after the new pool is verified.
+  deletion_protection = "INACTIVE"
 
   user_pool_tier = "ESSENTIALS"
 
@@ -54,8 +63,8 @@ resource "aws_cognito_user_pool" "xomware_users" {
     email_sending_account = "COGNITO_DEFAULT"
   }
 
-  # Required schema attributes. Both required + mutable.
-  # preferred_username uniqueness is enforced via alias_attributes above.
+  # Required schema attributes. Only email is enforced at the Cognito layer.
+  # Handle (preferredUsername) lives in DynamoDB — see comment on alias_attributes.
   schema {
     name                     = "email"
     attribute_data_type      = "String"
@@ -66,19 +75,6 @@ resource "aws_cognito_user_pool" "xomware_users" {
     string_attribute_constraints {
       min_length = 1
       max_length = 256
-    }
-  }
-
-  schema {
-    name                     = "preferred_username"
-    attribute_data_type      = "String"
-    required                 = true
-    mutable                  = true
-    developer_only_attribute = false
-
-    string_attribute_constraints {
-      min_length = 3
-      max_length = 20
     }
   }
 
