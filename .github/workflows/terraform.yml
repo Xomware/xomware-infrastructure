@@ -62,20 +62,19 @@ jobs:
       - name: Comment PR with Plan
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
+        env:
+          PLAN_STDOUT: ${{ steps.plan.outputs.stdout }}
+          PLAN_OUTCOME: ${{ steps.plan.outcome }}
         with:
           script: |
-            const plan = `${{ steps.plan.outputs.stdout }}`;
+            const plan = process.env.PLAN_STDOUT || '';
             const truncated = plan.length > 60000 ? plan.substring(0, 60000) + '\n\n... (truncated)' : plan;
-            const body = `### Terraform Plan 📋
-            \`\`\`
-            ${truncated}
-            \`\`\`
-            *Plan: ${{ steps.plan.outcome }}*`;
-            github.rest.issues.createComment({
+            const body = '### Terraform Plan 📋\n```\n' + truncated + '\n```\n*Plan: ' + process.env.PLAN_OUTCOME + '*';
+            await github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: body
+              body
             });
 
       - name: Terraform Apply
