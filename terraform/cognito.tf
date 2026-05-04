@@ -117,11 +117,16 @@ resource "aws_cognito_user_pool" "xomware_users" {
   # xomware-users on email-verified signup. Per AWS provider docs this is an
   # in-place update (NOT replacement). See lambdas_users.tf for the Lambda.
   #
+  # Phase 4: PreSignUp Lambda trigger auto-links federated (Google) identities
+  # to existing native Cognito users when emails match — prevents duplicate
+  # accounts on first Google sign-in for an existing user.
+  #
   # Phase 5: PostAuthentication trigger writes a `signin` event to
   # xomware-events for the /admin portal audit log.
   lambda_config {
-    post_confirmation    = aws_lambda_function.users["create"].arn
-    post_authentication  = aws_lambda_function.auth_track.arn
+    post_confirmation   = aws_lambda_function.users["create"].arn
+    pre_sign_up         = aws_lambda_function.users["presignup_link"].arn
+    post_authentication = aws_lambda_function.auth_track.arn
   }
 
   tags = merge(local.standard_tags, {
@@ -140,6 +145,15 @@ resource "aws_lambda_permission" "users_create_cognito" {
   statement_id  = "AllowCognitoInvokeUsersCreate"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.users["create"].function_name
+  principal     = "cognito-idp.amazonaws.com"
+  source_arn    = aws_cognito_user_pool.xomware_users.arn
+}
+
+# Allow Cognito to invoke the users-presignup-link PreSignUp lambda.
+resource "aws_lambda_permission" "users_presignup_link_cognito" {
+  statement_id  = "AllowCognitoInvokeUsersPreSignupLink"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.users["presignup_link"].function_name
   principal     = "cognito-idp.amazonaws.com"
   source_arn    = aws_cognito_user_pool.xomware_users.arn
 }
@@ -189,7 +203,11 @@ resource "aws_cognito_user_pool_client" "xomware_com" {
     "http://localhost:4200",
   ]
 
-  supported_identity_providers = ["COGNITO"]
+  # Google added in Phase 4. The Google IdP must exist before this client
+  # can list it; explicit depends_on guarantees ordering.
+  supported_identity_providers = ["COGNITO", "Google"]
+
+  depends_on = [aws_cognito_identity_provider.google]
 
   prevent_user_existence_errors = "ENABLED"
   enable_token_revocation       = true
@@ -232,7 +250,10 @@ resource "aws_cognito_user_pool_client" "xomappetit" {
     "http://localhost:3000",
   ]
 
-  supported_identity_providers = ["COGNITO"]
+  # Google added in Phase 4. See xomware_com client comment.
+  supported_identity_providers = ["COGNITO", "Google"]
+
+  depends_on = [aws_cognito_identity_provider.google]
 
   prevent_user_existence_errors = "ENABLED"
   enable_token_revocation       = true
