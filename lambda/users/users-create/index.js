@@ -79,17 +79,22 @@ exports.handler = async (event) => {
       return event;
     }
 
+    // preferredUsername is the hash key of the handle-index GSI; DynamoDB
+    // rejects NULL on indexed keys. Omit when missing (sparse GSI) — same
+    // for displayName and avatarUrl, kept tidy by only setting populated
+    // fields.
     const now = new Date().toISOString();
     const row = {
       userId,
-      email: email || null,
-      preferredUsername: preferredUsername || null,
-      displayName: preferredUsername || null,
-      avatarUrl: null,
       profileVisibility: 'public',
       createdAt: now,
       lastSeenAt: now,
     };
+    if (email) row.email = email;
+    if (preferredUsername) {
+      row.preferredUsername = preferredUsername;
+      row.displayName = preferredUsername;
+    }
 
     let createdNew = false;
     try {
