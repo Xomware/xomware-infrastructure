@@ -79,11 +79,11 @@ resource "aws_cognito_user_pool" "xomware_users" {
           <tr><td align="center">
             <table width="480" cellpadding="0" cellspacing="0" style="background:#18181b;border:1px solid #27272a;border-radius:12px;padding:32px;text-align:left;">
               <tr><td>
-                <div style="font-size:24px;font-weight:900;letter-spacing:-0.02em;color:#ff6b6b;">XOMWARE</div>
-                <div style="height:3px;width:48px;background:linear-gradient(90deg,#ff6b6b,#ff7b1c);border-radius:2px;margin:8px 0 24px 0;"></div>
+                <div style="font-size:24px;font-weight:900;letter-spacing:-0.02em;color:#00b4d8;">XOMWARE</div>
+                <div style="height:3px;width:48px;background:linear-gradient(90deg,#00b4d8,#48cae4);border-radius:2px;margin:8px 0 24px 0;"></div>
                 <h2 style="margin:0 0 12px 0;color:#fafafa;font-size:20px;font-weight:700;">Verify your email</h2>
                 <p style="margin:0 0 20px 0;color:#a1a1aa;font-size:15px;line-height:1.5;">Welcome. Use the code below to finish creating your Xomware account:</p>
-                <div style="background:#0a0a0b;border:1px solid #ff6b6b33;border-radius:8px;padding:20px;text-align:center;font-size:32px;letter-spacing:0.3em;color:#ff6b6b;font-weight:700;font-family:ui-monospace,monospace;">{####}</div>
+                <div style="background:#0a0a0b;border:1px solid #00b4d833;border-radius:8px;padding:20px;text-align:center;font-size:32px;letter-spacing:0.3em;color:#00b4d8;font-weight:700;font-family:ui-monospace,monospace;">{####}</div>
                 <p style="margin:24px 0 0 0;color:#52525b;font-size:13px;line-height:1.5;">Code expires in 24 hours. If you didn't sign up, ignore this email.</p>
               </td></tr>
             </table>
