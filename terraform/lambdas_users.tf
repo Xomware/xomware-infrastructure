@@ -49,6 +49,13 @@ locals {
       timeout     = 10
       memory      = 256
     }
+    batch_get = {
+      name        = "users-batch-get"
+      description = "POST /users/batch-get - return public profile slice for up to 100 user IDs"
+      source_dir  = "${path.module}/../lambda/users/users-batch-get"
+      timeout     = 10
+      memory      = 256
+    }
   }
 
   users_lambda_env = {

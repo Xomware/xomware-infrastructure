@@ -73,6 +73,12 @@ locals {
       http_method = "POST"
       invoke_arn  = aws_lambda_function.users["presign_avatar"].invoke_arn
     },
+    {
+      name        = "batch-get"
+      path_part   = "batch-get"
+      http_method = "POST"
+      invoke_arn  = aws_lambda_function.users["batch_get"].invoke_arn
+    },
   ]
 
   admin_endpoints = [
