@@ -79,6 +79,12 @@ locals {
       http_method = "POST"
       invoke_arn  = aws_lambda_function.users["batch_get"].invoke_arn
     },
+    {
+      name        = "search"
+      path_part   = "search"
+      http_method = "POST"
+      invoke_arn  = aws_lambda_function.users["search"].invoke_arn
+    },
   ]
 
   admin_endpoints = [

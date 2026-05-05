@@ -56,6 +56,13 @@ locals {
       timeout     = 10
       memory      = 256
     }
+    search = {
+      name        = "users-search"
+      description = "POST /users/search - handle prefix search via handle-index GSI"
+      source_dir  = "${path.module}/../lambda/users/users-search"
+      timeout     = 10
+      memory      = 256
+    }
   }
 
   users_lambda_env = {
