@@ -58,3 +58,12 @@ resource "aws_ssm_parameter" "cognito_client_xomappetit_id" {
 
   lifecycle { ignore_changes = [tags, tags_all] }
 }
+
+resource "aws_ssm_parameter" "cognito_client_xomforms_id" {
+  name        = "/xomware/shared/cognito/clients/xomforms-id"
+  description = "Cognito App Client ID for xomforms"
+  type        = "String"
+  value       = aws_cognito_user_pool_client.xomforms.id
+
+  lifecycle { ignore_changes = [tags, tags_all] }
+}

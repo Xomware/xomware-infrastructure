@@ -269,6 +269,56 @@ resource "aws_cognito_user_pool_client" "xomappetit" {
   }
 }
 
+# Xomforms (group availability scheduler -- xomforms.xomware.com). Mirrors
+# the xomappetit client exactly aside from the callback/logout domain: no
+# IDN alternate host (xomforms has no accented-character domain like
+# xomappétit), dev server on localhost:4200 (Angular default, matching
+# xomify-frontend's convention -- xomforms-frontend is also Angular 18,
+# unlike xomappetit which is Next.js on :3000).
+resource "aws_cognito_user_pool_client" "xomforms" {
+  name         = "xomforms-client"
+  user_pool_id = aws_cognito_user_pool.xomware_users.id
+
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  callback_urls = [
+    "https://xomforms.xomware.com/auth/callback",
+    "http://localhost:4200/auth/callback",
+  ]
+
+  logout_urls = [
+    "https://xomforms.xomware.com",
+    "http://localhost:4200",
+  ]
+
+  # Google added in Phase 4. See xomware_com client comment.
+  supported_identity_providers = ["COGNITO", "Google"]
+
+  depends_on = [aws_cognito_identity_provider.google]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+
+  id_token_validity      = 60
+  access_token_validity  = 60
+  refresh_token_validity = 30
+
+  token_validity_units {
+    id_token      = "minutes"
+    access_token  = "minutes"
+    refresh_token = "days"
+  }
+}
+
 # -------------------------------------------------------------------
 # Admin group — JWT claim `cognito:groups` flows into APIs and gates
 # the /admin portal route in xomware-frontend.
