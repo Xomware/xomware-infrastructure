@@ -43,10 +43,28 @@ resource "aws_cognito_identity_provider" "google" {
   provider_name = "Google"
   provider_type = "Google"
 
+  # The six attributes_url/authorize_url/oidc_issuer/token_* keys below are
+  # standard Google OIDC endpoints that Cognito auto-populates server-side
+  # for provider_type = "Google" regardless of whether they're declared
+  # here. Pinning them explicitly to their live values stops Terraform from
+  # perpetually wanting to null them out on every plan (they were never
+  # actually different -- AWS was filling them in and Terraform's config
+  # just didn't know about them). Values are the exact "before" values
+  # Terraform's own state refresh showed in the `terraform plan` diff
+  # during Xomforms PR #46 investigation (2026-07-20) -- an exact match to
+  # what's already deployed, so this is a hygiene/plan-noise fix, not a
+  # functional change.
   provider_details = {
     client_id        = data.aws_ssm_parameter.google_oauth_client_id.value
     client_secret    = data.aws_ssm_parameter.google_oauth_client_secret.value
     authorize_scopes = "profile email openid"
+
+    attributes_url                = "https://people.googleapis.com/v1/people/me?personFields="
+    attributes_url_add_attributes = "true"
+    authorize_url                 = "https://accounts.google.com/o/oauth2/v2/auth"
+    oidc_issuer                   = "https://accounts.google.com"
+    token_request_method          = "POST"
+    token_url                     = "https://www.googleapis.com/oauth2/v4/token"
   }
 
   # Map Google claims -> Cognito user pool attributes.
