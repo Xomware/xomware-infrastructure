@@ -31,6 +31,11 @@ output "cognito_client_xomappetit_id" {
   value       = aws_cognito_user_pool_client.xomappetit.id
 }
 
+output "cognito_client_xomcron_id" {
+  description = "Cognito App Client ID for xomcron (crons.xomware.com)"
+  value       = aws_cognito_user_pool_client.xomcron.id
+}
+
 # Phase 3 - users service + avatars + file-editor migration
 
 output "users_api_url" {
