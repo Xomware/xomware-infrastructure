@@ -36,6 +36,11 @@ output "cognito_client_xomcron_id" {
   value       = aws_cognito_user_pool_client.xomcron.id
 }
 
+output "cognito_client_reeses_id" {
+  description = "Cognito App Client ID for Reese's Playoff Challenge (playoffs.xomware.com)"
+  value       = aws_cognito_user_pool_client.reeses.id
+}
+
 # Phase 3 - users service + avatars + file-editor migration
 
 output "users_api_url" {
