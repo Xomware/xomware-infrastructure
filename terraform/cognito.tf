@@ -423,6 +423,60 @@ resource "aws_cognito_user_pool_client" "xomcron" {
   }
 }
 
+resource "aws_cognito_user_pool_client" "reeses" {
+  name         = "reeses-client"
+  user_pool_id = aws_cognito_user_pool.xomware_users.id
+
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  # Reese's Playoff Challenge is served from playoffs.xomware.com, not
+  # reeses.xomware.com — the app/resource prefix is `reeses`, the public
+  # DNS name is deliberately neutral. Same split as xomcron/crons above.
+  #
+  # Loopback ports are 3000, not 4200: this is the first Next.js frontend
+  # on the shared pool (`next dev` binds 3000). Copying the Angular apps'
+  # 4200 here would be a silent redirect_uri mismatch at local sign-in.
+  # Both spellings registered because Cognito matches callbacks exactly.
+  callback_urls = [
+    "https://playoffs.xomware.com/auth/callback",
+    "http://localhost:3000/auth/callback",
+    "http://127.0.0.1:3000/auth/callback",
+  ]
+
+  logout_urls = [
+    "https://playoffs.xomware.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+  ]
+
+  # Google added in Phase 4. See xomware_com client comment.
+  supported_identity_providers = ["COGNITO", "Google"]
+
+  depends_on = [aws_cognito_identity_provider.google]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+
+  id_token_validity      = 60
+  access_token_validity  = 60
+  refresh_token_validity = 30
+
+  token_validity_units {
+    id_token      = "minutes"
+    access_token  = "minutes"
+    refresh_token = "days"
+  }
+}
+
 # -------------------------------------------------------------------
 # Admin group — JWT claim `cognito:groups` flows into APIs and gates
 # the /admin portal route in xomware-frontend.

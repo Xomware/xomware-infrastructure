@@ -76,3 +76,12 @@ resource "aws_ssm_parameter" "cognito_client_xomtracks_id" {
 
   lifecycle { ignore_changes = [tags, tags_all] }
 }
+
+resource "aws_ssm_parameter" "cognito_client_reeses_id" {
+  name        = "/xomware/shared/cognito/clients/reeses-id"
+  description = "Cognito App Client ID for Reese's Playoff Challenge (playoffs.xomware.com)"
+  type        = "String"
+  value       = aws_cognito_user_pool_client.reeses.id
+
+  lifecycle { ignore_changes = [tags, tags_all] }
+}
