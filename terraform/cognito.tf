@@ -29,9 +29,15 @@ resource "aws_cognito_user_pool" "xomware_users" {
   alias_attributes         = ["email"]
   auto_verified_attributes = ["email"]
 
-  # INACTIVE during the catch-22 fix sequence. Will be re-enabled in a
-  # follow-up PR once the new pool is verified working with signup.
-  deletion_protection = "INACTIVE"
+  # Re-enabled: the condition this was waiting on is met — the pool has real
+  # users and signup/signin have been exercised end to end.
+  #
+  # This matters more here than anywhere else in the estate. Cognito has no
+  # point-in-time recovery and no undelete: if this pool goes, every account
+  # goes with it, permanently. The WARNING above lists four attributes that
+  # force replacement — this is the guardrail that turns one of those edits
+  # from silent data loss into a failed apply.
+  deletion_protection = "ACTIVE"
 
   user_pool_tier = "ESSENTIALS"
 
