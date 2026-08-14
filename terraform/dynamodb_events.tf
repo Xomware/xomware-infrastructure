@@ -29,6 +29,10 @@ resource "aws_dynamodb_table" "events" {
     enabled = true
   }
 
+  # As with the users table: PITR does not protect against the table itself
+  # being deleted. Audit rows are the only record of who came and when.
+  deletion_protection_enabled = true
+
   ttl {
     attribute_name = "ttl"
     enabled        = true

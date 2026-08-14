@@ -19,6 +19,10 @@ resource "aws_dynamodb_table" "users" {
     enabled = true
   }
 
+  # PITR restores a table; it does not survive one being deleted. This is the
+  # guardrail for the delete itself — profile data has no other source.
+  deletion_protection_enabled = true
+
   attribute {
     name = "userId"
     type = "S"
