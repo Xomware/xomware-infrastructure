@@ -102,6 +102,27 @@ locals {
     },
   ]
 
+  # Activity ingest. Two routes onto one lambda so signed-in identity can come
+  # from claims API Gateway has already verified, while anonymous visitors —
+  # who are most of the traffic, since the landing page is public — can still
+  # be recorded. `authorization = "NONE"` overrides the module-level Cognito
+  # default for that one route.
+  events_endpoints = [
+    {
+      name          = "track"
+      path_part     = "track"
+      http_method   = "POST"
+      invoke_arn    = aws_lambda_function.events_track.invoke_arn
+      authorization = "NONE"
+    },
+    {
+      name        = "track-user"
+      path_part   = "track-user"
+      http_method = "POST"
+      invoke_arn  = aws_lambda_function.events_track.invoke_arn
+    },
+  ]
+
   users_allow_origins = join(",", [
     "https://xomware.com",
     "https://xn--xomapptit-g4a.xomware.com",
@@ -145,6 +166,10 @@ module "users_api" {
     admin = {
       path_prefix = "admin"
       endpoints   = local.admin_endpoints
+    }
+    events = {
+      path_prefix = "events"
+      endpoints   = local.events_endpoints
     }
   }
 }

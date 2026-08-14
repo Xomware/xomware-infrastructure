@@ -37,6 +37,20 @@ This workspace manages the central landing page and shared DNS zone that all Xom
 | [web-hosting](https://github.com/domgiordano/web-hosting) | v1.1.0 | S3 + CloudFront + ACM + Route53 |
 | [waf](https://github.com/domgiordano/waf) | v1.1.0 | CloudFront WAF with managed rules |
 
+## Lambda tests
+
+Lambda source lives in `lambda/`. There is no package.json and no test
+framework — the few tests here use Node's built-in runner and need neither:
+
+```bash
+node --test lambda/events/events-track/validate.test.js
+```
+
+Pass the file, not the directory: `node --test <dir>` also tries to load
+`index.js`, which requires the AWS SDK that only exists in the Lambda runtime.
+Testable logic is kept in modules with no SDK import (e.g. `validate.js`) so it
+can run outside AWS.
+
 ## Terraform Cloud
 
 - **Organization:** Domjgiordano

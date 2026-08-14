@@ -56,11 +56,12 @@ resource "aws_iam_role_policy_attachment" "admin_lambda_basic" {
 }
 
 data "aws_iam_policy_document" "admin_lambda" {
-  # Events table — write (auth-track) + query GSIs (events-list).
+  # Events table — write (auth-track, events-track) + query GSIs (events-list).
   statement {
     effect = "Allow"
     actions = [
       "dynamodb:PutItem",
+      "dynamodb:BatchWriteItem",
       "dynamodb:Query",
       "dynamodb:GetItem",
       "dynamodb:DescribeTable",
