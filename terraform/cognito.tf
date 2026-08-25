@@ -517,3 +517,63 @@ resource "aws_cognito_user_in_group" "admins" {
   group_name   = aws_cognito_user_group.admin.name
   username     = each.value
 }
+
+# Xomper — the multi-league fantasy platform at xomper.xomware.com.
+#
+# Appended alongside the other app clients rather than provisioned in
+# xomper-infrastructure, matching the decision recorded in the xomforms
+# client comment: clients live with the pool owner, consumers read the ID
+# back from SSM.
+#
+# Nothing above this line is touched. The pool itself carries
+# deletion_protection and four replacement-forcing attributes; adding a
+# client is additive and cannot affect existing accounts.
+#
+# Note the callback path. Unlike the other apps, Xomper's Supabase-era code
+# redirected to `${baseCallbackUrl}/home`, not /auth/callback. The Cognito
+# migration keeps /auth/callback as the canonical path and the app will be
+# updated to match, so both are listed while that lands.
+resource "aws_cognito_user_pool_client" "xomper" {
+  name         = "xomper-client"
+  user_pool_id = aws_cognito_user_pool.xomware_users.id
+
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  callback_urls = [
+    "https://xomper.xomware.com/auth/callback",
+    "https://xomper.xomware.com/home",
+    "http://localhost:4200/auth/callback",
+    "http://localhost:4200/home",
+  ]
+
+  logout_urls = [
+    "https://xomper.xomware.com",
+    "http://localhost:4200",
+  ]
+
+  supported_identity_providers = ["COGNITO", "Google"]
+
+  depends_on = [aws_cognito_identity_provider.google]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+
+  id_token_validity      = 60
+  access_token_validity  = 60
+  refresh_token_validity = 30
+
+  token_validity_units {
+    id_token      = "minutes"
+    access_token  = "minutes"
+    refresh_token = "days"
+  }
+}
