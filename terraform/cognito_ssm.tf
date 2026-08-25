@@ -85,3 +85,12 @@ resource "aws_ssm_parameter" "cognito_client_reeses_id" {
 
   lifecycle { ignore_changes = [tags, tags_all] }
 }
+
+resource "aws_ssm_parameter" "cognito_client_xomper_id" {
+  name        = "/xomware/shared/cognito/clients/xomper-id"
+  description = "Cognito App Client ID for xomper"
+  type        = "String"
+  value       = aws_cognito_user_pool_client.xomper.id
+
+  lifecycle { ignore_changes = [tags, tags_all] }
+}
