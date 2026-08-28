@@ -65,3 +65,15 @@ variable "command_center_passphrase_hash" {
   type        = string
   sensitive   = true
 }
+
+# Read off the repo, never built from a name:
+#   gh api /repos/<org>/<repo>/actions/oidc/customization/sub -q .sub_claim_prefix
+# GitHub uses immutable numeric identifiers on newer repos and reports the
+# repo's CURRENT name. Both spellings are listed so a flip keeps working.
+variable "github_frontend_subjects" {
+  description = "OIDC subject prefixes allowed to assume the frontend deploy role"
+  type        = list(string)
+  default = [
+    "repo:Xomware/xomware-frontend",
+  ]
+}
