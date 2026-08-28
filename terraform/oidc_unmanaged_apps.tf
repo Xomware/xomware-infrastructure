@@ -31,7 +31,11 @@ locals {
       bucket        = "playoffs.xomware.com"
       distribution  = "EAXGENZJR8L3Q"
       lambda_prefix = "reeses-"
-      ssm_prefix    = "reeses"
+      # The SHARED Cognito prefix, not this app's own: the user pool is shared
+      # across Xomware and the build reads the hosted-UI domain from it. Scoping
+      # to /reeses/* produced a bundle with no domain, and the repo's own
+      # "Google sign-in is wired" check caught it.
+      ssm_prefix = "xomware/shared"
     }
     clt_dynasty = {
       subjects = [
