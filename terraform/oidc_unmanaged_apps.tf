@@ -21,6 +21,7 @@ locals {
       bucket        = "derby.xomware.com"
       distribution  = "E1SVWFQOE6RU2X"
       lambda_prefix = "derby-"
+      kms_alias     = "alias/derby-web-app"
       ssm_prefix    = null
     }
     reeses = {
@@ -31,6 +32,7 @@ locals {
       bucket        = "playoffs.xomware.com"
       distribution  = "EAXGENZJR8L3Q"
       lambda_prefix = "reeses-"
+      kms_alias     = "alias/kms-for-reeses"
       # The SHARED Cognito prefix, not this app's own: the user pool is shared
       # across Xomware and the build reads the hosted-UI domain from it. Scoping
       # to /reeses/* produced a bundle with no domain, and the repo's own
@@ -46,6 +48,8 @@ locals {
       distribution  = "E2C3YYJUEV78O7"
       lambda_prefix = null
       ssm_prefix    = "clt-dynasty"
+      # clt.dynasty.xomware.com is SSE-S3, not KMS, so there is no key to grant.
+      kms_alias = null
     }
   }
 }
@@ -83,6 +87,11 @@ resource "aws_iam_role" "unmanaged_app" {
   assume_role_policy = data.aws_iam_policy_document.unmanaged_app_trust[each.key].json
 
   tags = merge(local.standard_tags, tomap({ "name" = "${each.key}-github-actions-deploy" }))
+}
+
+data "aws_kms_alias" "unmanaged_app" {
+  for_each = { for name, cfg in local.unmanaged_app_roles : name => cfg if cfg.kms_alias != null }
+  name     = each.value.kms_alias
 }
 
 data "aws_iam_policy_document" "unmanaged_app" {
@@ -151,6 +160,24 @@ data "aws_iam_policy_document" "unmanaged_app" {
         "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.web_app_account.account_id}:function:${statement.value}*",
         "arn:aws:lambda:${var.aws_region}:${data.aws_caller_identity.web_app_account.account_id}:layer:${statement.value}*",
       ]
+    }
+  }
+
+  # A KMS-encrypted bucket needs the key as well as the bucket: s3:PutObject
+  # alone fails with AccessDenied on kms:GenerateDataKey. Each of these apps has
+  # its own key, resolved from its alias so a key rotation does not need an edit
+  # here. clt-dynasty's bucket is SSE-S3 and has no key at all.
+  dynamic "statement" {
+    for_each = each.value.kms_alias == null ? [] : [each.key]
+    content {
+      sid    = "UseSiteKey"
+      effect = "Allow"
+      actions = [
+        "kms:Decrypt",
+        "kms:Encrypt",
+        "kms:GenerateDataKey",
+      ]
+      resources = [data.aws_kms_alias.unmanaged_app[statement.value].target_key_arn]
     }
   }
 
