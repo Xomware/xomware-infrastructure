@@ -29,9 +29,15 @@ resource "aws_cognito_user_pool" "xomware_users" {
   alias_attributes         = ["email"]
   auto_verified_attributes = ["email"]
 
-  # INACTIVE during the catch-22 fix sequence. Will be re-enabled in a
-  # follow-up PR once the new pool is verified working with signup.
-  deletion_protection = "INACTIVE"
+  # Re-enabled: the condition this was waiting on is met — the pool has real
+  # users and signup/signin have been exercised end to end.
+  #
+  # This matters more here than anywhere else in the estate. Cognito has no
+  # point-in-time recovery and no undelete: if this pool goes, every account
+  # goes with it, permanently. The WARNING above lists four attributes that
+  # force replacement — this is the guardrail that turns one of those edits
+  # from silent data loss into a failed apply.
+  deletion_protection = "ACTIVE"
 
   user_pool_tier = "ESSENTIALS"
 
@@ -269,6 +275,214 @@ resource "aws_cognito_user_pool_client" "xomappetit" {
   }
 }
 
+# Xomforms (group availability scheduler -- xomforms.xomware.com). Mirrors
+# the xomappetit client exactly aside from the callback/logout domain: no
+# IDN alternate host (xomforms has no accented-character domain like
+# xomappétit), dev server on localhost:4200 (Angular default, matching
+# xomify-frontend's convention -- xomforms-frontend is also Angular 18,
+# unlike xomappetit which is Next.js on :3000).
+resource "aws_cognito_user_pool_client" "xomforms" {
+  name         = "xomforms-client"
+  user_pool_id = aws_cognito_user_pool.xomware_users.id
+
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  callback_urls = [
+    "https://xomforms.xomware.com/auth/callback",
+    "http://localhost:4200/auth/callback",
+  ]
+
+  logout_urls = [
+    "https://xomforms.xomware.com",
+    "http://localhost:4200",
+  ]
+
+  # Google added in Phase 4. See xomware_com client comment.
+  supported_identity_providers = ["COGNITO", "Google"]
+
+  depends_on = [aws_cognito_identity_provider.google]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+
+  id_token_validity      = 60
+  access_token_validity  = 60
+  refresh_token_validity = 30
+
+  token_validity_units {
+    id_token      = "minutes"
+    access_token  = "minutes"
+    refresh_token = "days"
+  }
+}
+
+# Xomtracks (iMessage music-share tracker -- xomtracks.xomware.com).
+# Mirrors the xomforms client exactly field-for-field: no IDN alternate
+# host, dev server on localhost:4200 (Angular, same as xomify-frontend/
+# xomforms-frontend). This client gates BOTH the browse UI's page access
+# AND (per the ported CUSTOM authorizer in xomtracks-infrastructure) the
+# backend API itself -- the frontend sends the Cognito ID token as the
+# bearer token on authed API calls, same pattern xomforms established.
+resource "aws_cognito_user_pool_client" "xomtracks" {
+  name         = "xomtracks-client"
+  user_pool_id = aws_cognito_user_pool.xomware_users.id
+
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  callback_urls = [
+    "https://xomtracks.xomware.com/auth/callback",
+    "http://localhost:4200/auth/callback",
+  ]
+
+  logout_urls = [
+    "https://xomtracks.xomware.com",
+    "http://localhost:4200",
+  ]
+
+  # Google added in Phase 4. See xomware_com client comment.
+  supported_identity_providers = ["COGNITO", "Google"]
+
+  depends_on = [aws_cognito_identity_provider.google]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+
+  id_token_validity      = 60
+  access_token_validity  = 60
+  refresh_token_validity = 30
+
+  token_validity_units {
+    id_token      = "minutes"
+    access_token  = "minutes"
+    refresh_token = "days"
+  }
+}
+
+resource "aws_cognito_user_pool_client" "xomcron" {
+  name         = "xomcron-client"
+  user_pool_id = aws_cognito_user_pool.xomware_users.id
+
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  # Xomcron is served from crons.xomware.com, not xomcron.xomware.com — the
+  # app is named xomcron, the site is /crons.
+  #
+  # Both loopback spellings are registered because Cognito matches callbacks
+  # exactly and `ng serve` binds 127.0.0.1 while the other apps' configs say
+  # localhost. Registering one and using the other is a silent redirect_uri
+  # mismatch at sign-in.
+  callback_urls = [
+    "https://crons.xomware.com/auth/callback",
+    "http://localhost:4200/auth/callback",
+    "http://127.0.0.1:4200/auth/callback",
+  ]
+
+  logout_urls = [
+    "https://crons.xomware.com",
+    "http://localhost:4200",
+    "http://127.0.0.1:4200",
+  ]
+
+  # Google added in Phase 4. See xomware_com client comment.
+  supported_identity_providers = ["COGNITO", "Google"]
+
+  depends_on = [aws_cognito_identity_provider.google]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+
+  id_token_validity      = 60
+  access_token_validity  = 60
+  refresh_token_validity = 30
+
+  token_validity_units {
+    id_token      = "minutes"
+    access_token  = "minutes"
+    refresh_token = "days"
+  }
+}
+
+resource "aws_cognito_user_pool_client" "reeses" {
+  name         = "reeses-client"
+  user_pool_id = aws_cognito_user_pool.xomware_users.id
+
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  # Reese's Playoff Challenge is served from playoffs.xomware.com, not
+  # reeses.xomware.com — the app/resource prefix is `reeses`, the public
+  # DNS name is deliberately neutral. Same split as xomcron/crons above.
+  #
+  # Loopback ports are 3000, not 4200: this is the first Next.js frontend
+  # on the shared pool (`next dev` binds 3000). Copying the Angular apps'
+  # 4200 here would be a silent redirect_uri mismatch at local sign-in.
+  # Both spellings registered because Cognito matches callbacks exactly.
+  callback_urls = [
+    "https://playoffs.xomware.com/auth/callback",
+    "http://localhost:3000/auth/callback",
+    "http://127.0.0.1:3000/auth/callback",
+  ]
+
+  logout_urls = [
+    "https://playoffs.xomware.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+  ]
+
+  # Google added in Phase 4. See xomware_com client comment.
+  supported_identity_providers = ["COGNITO", "Google"]
+
+  depends_on = [aws_cognito_identity_provider.google]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+
+  id_token_validity      = 60
+  access_token_validity  = 60
+  refresh_token_validity = 30
+
+  token_validity_units {
+    id_token      = "minutes"
+    access_token  = "minutes"
+    refresh_token = "days"
+  }
+}
+
 # -------------------------------------------------------------------
 # Admin group — JWT claim `cognito:groups` flows into APIs and gates
 # the /admin portal route in xomware-frontend.
@@ -302,4 +516,64 @@ resource "aws_cognito_user_in_group" "admins" {
   user_pool_id = aws_cognito_user_pool.xomware_users.id
   group_name   = aws_cognito_user_group.admin.name
   username     = each.value
+}
+
+# Xomper — the multi-league fantasy platform at xomper.xomware.com.
+#
+# Appended alongside the other app clients rather than provisioned in
+# xomper-infrastructure, matching the decision recorded in the xomforms
+# client comment: clients live with the pool owner, consumers read the ID
+# back from SSM.
+#
+# Nothing above this line is touched. The pool itself carries
+# deletion_protection and four replacement-forcing attributes; adding a
+# client is additive and cannot affect existing accounts.
+#
+# Note the callback path. Unlike the other apps, Xomper's Supabase-era code
+# redirected to `${baseCallbackUrl}/home`, not /auth/callback. The Cognito
+# migration keeps /auth/callback as the canonical path and the app will be
+# updated to match, so both are listed while that lands.
+resource "aws_cognito_user_pool_client" "xomper" {
+  name         = "xomper-client"
+  user_pool_id = aws_cognito_user_pool.xomware_users.id
+
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  callback_urls = [
+    "https://xomper.xomware.com/auth/callback",
+    "https://xomper.xomware.com/home",
+    "http://localhost:4200/auth/callback",
+    "http://localhost:4200/home",
+  ]
+
+  logout_urls = [
+    "https://xomper.xomware.com",
+    "http://localhost:4200",
+  ]
+
+  supported_identity_providers = ["COGNITO", "Google"]
+
+  depends_on = [aws_cognito_identity_provider.google]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+
+  id_token_validity      = 60
+  access_token_validity  = 60
+  refresh_token_validity = 30
+
+  token_validity_units {
+    id_token      = "minutes"
+    access_token  = "minutes"
+    refresh_token = "days"
+  }
 }

@@ -58,3 +58,39 @@ resource "aws_ssm_parameter" "cognito_client_xomappetit_id" {
 
   lifecycle { ignore_changes = [tags, tags_all] }
 }
+
+resource "aws_ssm_parameter" "cognito_client_xomforms_id" {
+  name        = "/xomware/shared/cognito/clients/xomforms-id"
+  description = "Cognito App Client ID for xomforms"
+  type        = "String"
+  value       = aws_cognito_user_pool_client.xomforms.id
+
+  lifecycle { ignore_changes = [tags, tags_all] }
+}
+
+resource "aws_ssm_parameter" "cognito_client_xomtracks_id" {
+  name        = "/xomware/shared/cognito/clients/xomtracks-id"
+  description = "Cognito App Client ID for xomtracks"
+  type        = "String"
+  value       = aws_cognito_user_pool_client.xomtracks.id
+
+  lifecycle { ignore_changes = [tags, tags_all] }
+}
+
+resource "aws_ssm_parameter" "cognito_client_reeses_id" {
+  name        = "/xomware/shared/cognito/clients/reeses-id"
+  description = "Cognito App Client ID for Reese's Playoff Challenge (playoffs.xomware.com)"
+  type        = "String"
+  value       = aws_cognito_user_pool_client.reeses.id
+
+  lifecycle { ignore_changes = [tags, tags_all] }
+}
+
+resource "aws_ssm_parameter" "cognito_client_xomper_id" {
+  name        = "/xomware/shared/cognito/clients/xomper-id"
+  description = "Cognito App Client ID for xomper"
+  type        = "String"
+  value       = aws_cognito_user_pool_client.xomper.id
+
+  lifecycle { ignore_changes = [tags, tags_all] }
+}
