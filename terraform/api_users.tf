@@ -143,7 +143,7 @@ locals {
 }
 
 module "users_api" {
-  source = "git::https://github.com/domgiordano/api-gateway-service.git?ref=v2.6.0"
+  source = "git::https://github.com/domgiordano/api-gateway-service.git?ref=v2.8.0"
 
   app_name      = "${var.app_name}-users"
   stage_name    = "prod"
