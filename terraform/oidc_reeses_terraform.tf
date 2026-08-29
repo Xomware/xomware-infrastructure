@@ -22,8 +22,16 @@
 # default branch, so no pull request can assume the role that mutates.
 
 locals {
-  reeses_terraform_subjects = ["repo:Xomware/reeses-playoff-challenge"]
-  reeses_default_branch     = "main"
+  # Both forms, exactly as the deploy role above lists them. This repository
+  # emits the numeric enterprise subject rather than the plain one, so a trust
+  # policy carrying only `repo:Xomware/...` is refused with "Not authorized to
+  # perform sts:AssumeRoleWithWebIdentity" — which reads like a missing secret
+  # rather than a subject mismatch.
+  reeses_terraform_subjects = [
+    "repo:Xomware/reeses-playoff-challenge",
+    "repo:Xomware@263047999/reeses-playoff-challenge@1324383231",
+  ]
+  reeses_default_branch = "main"
 }
 
 data "aws_iam_policy_document" "reeses_terraform_plan_trust" {
