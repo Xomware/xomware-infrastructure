@@ -483,6 +483,56 @@ resource "aws_cognito_user_pool_client" "reeses" {
   }
 }
 
+resource "aws_cognito_user_pool_client" "smirnoff" {
+  name         = "smirnoff-client"
+  user_pool_id = aws_cognito_user_pool.xomware_users.id
+
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  # smirnoff.xomware.com is temporary; the league site moves to its own domain
+  # later, and that domain's callback gets added here. Next.js dev binds 3000,
+  # same as reeses above.
+  callback_urls = [
+    "https://smirnoff.xomware.com/auth/callback",
+    "http://localhost:3000/auth/callback",
+    "http://127.0.0.1:3000/auth/callback",
+  ]
+
+  logout_urls = [
+    "https://smirnoff.xomware.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+  ]
+
+  # Google only: the league signs in with Gmail, and a password flow is one
+  # more thing to support for fifteen people.
+  supported_identity_providers = ["Google"]
+
+  depends_on = [aws_cognito_identity_provider.google]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+
+  id_token_validity      = 60
+  access_token_validity  = 60
+  refresh_token_validity = 30
+
+  token_validity_units {
+    id_token      = "minutes"
+    access_token  = "minutes"
+    refresh_token = "days"
+  }
+}
+
 # -------------------------------------------------------------------
 # Admin group — JWT claim `cognito:groups` flows into APIs and gates
 # the /admin portal route in xomware-frontend.
