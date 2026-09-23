@@ -498,16 +498,18 @@ resource "aws_cognito_user_pool_client" "smirnoff" {
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_scopes                 = ["email", "openid", "profile"]
 
-  # smirnoff.xomware.com is temporary; the league site moves to its own domain
-  # later, and that domain's callback gets added here. Next.js dev binds 3000,
-  # same as reeses above.
+  # smirnoff-league.com is the league's own domain. smirnoff.xomware.com stays
+  # until the move is live, then gets dropped. Next.js dev binds 3000, same as
+  # reeses above.
   callback_urls = [
+    "https://smirnoff-league.com/auth/callback",
     "https://smirnoff.xomware.com/auth/callback",
     "http://localhost:3000/auth/callback",
     "http://127.0.0.1:3000/auth/callback",
   ]
 
   logout_urls = [
+    "https://smirnoff-league.com",
     "https://smirnoff.xomware.com",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
