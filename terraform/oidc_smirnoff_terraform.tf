@@ -12,6 +12,10 @@ locals {
   smirnoff_terraform_subjects = [
     "repo:Xomware/smirnoff-league",
     "repo:Xomware@263047999/smirnoff-league@1382285884",
+    # The repo is moving to Dom's personal account; both old and new owners are
+    # trusted until the move is done, then the Xomware pair goes.
+    "repo:domgiordano/smirnoff-league",
+    "repo:domgiordano@44783934/smirnoff-league@1382285884",
   ]
   smirnoff_default_branch = "main"
 }
