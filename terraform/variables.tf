@@ -91,3 +91,14 @@ variable "default_branch" {
   type        = string
   default     = "master"
 }
+
+variable "smirnoff_google_client_id" {
+  description = "OAuth client ID of the Smirnoff League Google Cloud project"
+  type        = string
+}
+
+variable "smirnoff_google_client_secret" {
+  description = "OAuth client secret of the Smirnoff League Google Cloud project"
+  type        = string
+  sensitive   = true
+}

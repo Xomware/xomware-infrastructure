@@ -79,3 +79,29 @@ resource "aws_cognito_identity_provider" "google" {
     username    = "sub"
   }
 }
+
+# Second Google IdP, backed by the Smirnoff League's own Google Cloud project, so
+# the Google consent screen shows the league's name and logo rather than
+# Xomware's. Only smirnoff-client uses it. Google's `sub` is the same across
+# projects, and users-presignup-link attaches a GoogleSmirnoff sign-in to the
+# member's existing Google_ user, so accounts and subs carry over.
+resource "aws_cognito_identity_provider" "google_smirnoff" {
+  user_pool_id  = aws_cognito_user_pool.xomware_users.id
+  provider_name = "GoogleSmirnoff"
+  provider_type = "Google"
+
+  provider_details = {
+    client_id        = var.smirnoff_google_client_id
+    client_secret    = var.smirnoff_google_client_secret
+    authorize_scopes = "profile email openid"
+
+    attributes_url                = "https://people.googleapis.com/v1/people/me?personFields="
+    attributes_url_add_attributes = "true"
+    authorize_url                 = "https://accounts.google.com/o/oauth2/v2/auth"
+    oidc_issuer                   = "https://accounts.google.com"
+    token_request_method          = "POST"
+    token_url                     = "https://www.googleapis.com/oauth2/v4/token"
+  }
+
+  attribute_mapping = aws_cognito_identity_provider.google.attribute_mapping
+}
