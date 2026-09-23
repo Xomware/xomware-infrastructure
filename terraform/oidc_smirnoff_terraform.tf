@@ -101,6 +101,36 @@ resource "aws_iam_role_policy" "smirnoff_terraform_plan_state_lock" {
   policy = data.aws_iam_policy_document.reeses_terraform_plan_state_lock.json
 }
 
+# ReadOnlyAccess can read an SSM SecureString but not decrypt it, so a plan
+# refreshing smirnoff's unsubscribe secret fails. Decrypt is limited to SSM and
+# to that app's parameters.
+data "aws_iam_policy_document" "smirnoff_terraform_plan_decrypt" {
+  statement {
+    sid       = "DecryptOwnSecureStrings"
+    effect    = "Allow"
+    actions   = ["kms:Decrypt"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["ssm.${var.aws_region}.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringLike"
+      variable = "kms:EncryptionContext:PARAMETER_ARN"
+      values   = ["arn:aws:ssm:${var.aws_region}:${local.web_app_account_id}:parameter/smirnoff/*"]
+    }
+  }
+}
+
+resource "aws_iam_role_policy" "smirnoff_terraform_plan_decrypt" {
+  name   = "decrypt-smirnoff-secure-strings"
+  role   = aws_iam_role.smirnoff_terraform_plan.id
+  policy = data.aws_iam_policy_document.smirnoff_terraform_plan_decrypt.json
+}
+
 output "smirnoff_terraform_plan_role_arn" {
   description = "Read-only role the smirnoff-league Terraform workflow assumes for plans"
   value       = aws_iam_role.smirnoff_terraform_plan.arn
