@@ -10,10 +10,7 @@ locals {
   # Both subject forms are required -- this org emits the numeric enterprise
   # subject, and the plain form alone fails AssumeRoleWithWebIdentity.
   smirnoff_terraform_subjects = [
-    "repo:Xomware/smirnoff-league",
-    "repo:Xomware@263047999/smirnoff-league@1382285884",
-    # The repo is moving to Dom's personal account; both old and new owners are
-    # trusted until the move is done, then the Xomware pair goes.
+    # The repo lives on Dom's personal account (moved from Xomware 2026-09-23).
     "repo:domgiordano/smirnoff-league",
     "repo:domgiordano@44783934/smirnoff-league@1382285884",
   ]
