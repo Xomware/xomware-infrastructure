@@ -88,20 +88,25 @@ resource "aws_cognito_identity_provider" "google" {
 resource "aws_cognito_identity_provider" "google_smirnoff" {
   user_pool_id  = aws_cognito_user_pool.xomware_users.id
   provider_name = "GoogleSmirnoff"
-  provider_type = "Google"
+  # OIDC because a pool allows only one provider of type Google, and "Google"
+  # above is it.
+  provider_type = "OIDC"
 
   provider_details = {
-    client_id        = var.smirnoff_google_client_id
-    client_secret    = var.smirnoff_google_client_secret
-    authorize_scopes = "profile email openid"
-
-    attributes_url                = "https://people.googleapis.com/v1/people/me?personFields="
-    attributes_url_add_attributes = "true"
-    authorize_url                 = "https://accounts.google.com/o/oauth2/v2/auth"
-    oidc_issuer                   = "https://accounts.google.com"
-    token_request_method          = "POST"
-    token_url                     = "https://www.googleapis.com/oauth2/v4/token"
+    client_id                 = var.smirnoff_google_client_id
+    client_secret             = var.smirnoff_google_client_secret
+    authorize_scopes          = "openid email profile"
+    oidc_issuer               = "https://accounts.google.com"
+    attributes_request_method = "GET"
   }
 
-  attribute_mapping = aws_cognito_identity_provider.google.attribute_mapping
+  attribute_mapping = {
+    email          = "email"
+    email_verified = "email_verified"
+    name           = "name"
+    given_name     = "given_name"
+    family_name    = "family_name"
+    picture        = "picture"
+    username       = "sub"
+  }
 }
