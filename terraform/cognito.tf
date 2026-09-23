@@ -513,10 +513,11 @@ resource "aws_cognito_user_pool_client" "smirnoff" {
   ]
 
   # Google only: the league signs in with Gmail, and a password flow is one
-  # more thing to support for fifteen people.
-  supported_identity_providers = ["Google"]
+  # more thing to support for fifteen people. Its own IdP so the consent screen
+  # carries league branding (cognito_google_idp.tf).
+  supported_identity_providers = ["GoogleSmirnoff"]
 
-  depends_on = [aws_cognito_identity_provider.google]
+  depends_on = [aws_cognito_identity_provider.google_smirnoff]
 
   prevent_user_existence_errors = "ENABLED"
   enable_token_revocation       = true

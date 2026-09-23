@@ -100,7 +100,17 @@ exports.handler = async (event) => {
       return !uname.startsWith('Google_') && !uname.startsWith('Facebook_');
     });
 
-    if (!native) {
+    // GoogleSmirnoff is the Smirnoff League's own Google project. Its members
+    // already have a Google_ user from before it existed; Google's sub is the
+    // same across projects, so attaching to that user keeps their Cognito sub
+    // and every row keyed by it. Federated users sit in EXTERNAL_PROVIDER, not
+    // CONFIRMED, hence the separate lookup.
+    const destination =
+      native ||
+      (providerName === 'GoogleSmirnoff' &&
+        candidates.find((u) => (u.Username || '') === `Google_${providerUserId}`));
+
+    if (!destination) {
       // No native user to link to. Let signup proceed as a brand-new
       // federated account; PostConfirmation will create the DDB row.
       console.log('users-presignup-link: no native user for', email, '— passing through');
@@ -112,7 +122,7 @@ exports.handler = async (event) => {
         UserPoolId: userPoolId,
         DestinationUser: {
           ProviderName: 'Cognito',
-          ProviderAttributeValue: native.Username,
+          ProviderAttributeValue: destination.Username,
         },
         SourceUser: {
           ProviderName: providerName,
@@ -125,8 +135,8 @@ exports.handler = async (event) => {
     console.log(
       'users-presignup-link: linked',
       providerName,
-      'identity to native user',
-      native.Username,
+      'identity to user',
+      destination.Username,
       'for',
       email,
     );

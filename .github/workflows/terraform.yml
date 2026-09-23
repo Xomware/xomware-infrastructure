@@ -65,6 +65,8 @@ jobs:
         continue-on-error: true
         env:
           TF_VAR_command_center_passphrase_hash: ${{ secrets.COMMAND_CENTER_PASSPHRASE_HASH }}
+          TF_VAR_smirnoff_google_client_id: ${{ secrets.SMIRNOFF_GOOGLE_CLIENT_ID }}
+          TF_VAR_smirnoff_google_client_secret: ${{ secrets.SMIRNOFF_GOOGLE_CLIENT_SECRET }}
 
       - name: Comment PR with Plan
         if: github.event_name == 'pull_request'
@@ -99,3 +101,5 @@ jobs:
         run: terraform apply -auto-approve -input=false
         env:
           TF_VAR_command_center_passphrase_hash: ${{ secrets.COMMAND_CENTER_PASSPHRASE_HASH }}
+          TF_VAR_smirnoff_google_client_id: ${{ secrets.SMIRNOFF_GOOGLE_CLIENT_ID }}
+          TF_VAR_smirnoff_google_client_secret: ${{ secrets.SMIRNOFF_GOOGLE_CLIENT_SECRET }}
