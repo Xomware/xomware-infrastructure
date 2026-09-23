@@ -98,6 +98,8 @@ resource "aws_cognito_identity_provider" "google_smirnoff" {
     authorize_scopes          = "openid email profile"
     oidc_issuer               = "https://accounts.google.com"
     attributes_request_method = "GET"
+    # Cognito fills this in server-side; pinned so plans stop proposing to drop it.
+    attributes_url_add_attributes = "false"
   }
 
   attribute_mapping = {
