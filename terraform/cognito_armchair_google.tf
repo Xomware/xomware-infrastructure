@@ -63,13 +63,16 @@ resource "aws_cognito_user_pool_client" "armchair_dwts" {
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_scopes                 = ["email", "openid", "profile"]
 
+  # dwts.xomware.com stays until the move to dwts.armchairjudge.com is live.
   callback_urls = [
+    "https://dwts.armchairjudge.com/auth/callback",
     "https://dwts.xomware.com/auth/callback",
     "http://localhost:3000/auth/callback",
     "http://127.0.0.1:3000/auth/callback",
   ]
 
   logout_urls = [
+    "https://dwts.armchairjudge.com",
     "https://dwts.xomware.com",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
