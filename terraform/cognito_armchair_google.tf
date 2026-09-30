@@ -1,21 +1,9 @@
 # Google sign-in for armchair-users and the DWTS app client.
 #
-# Manual prereq (Dom): a Google Cloud OAuth client (Web) with redirect URI
+# Reuses the shared Xomware Google OAuth client (cognito_google_idp.tf), so the
+# only manual step is adding this pool's redirect URI to that client:
 #   https://armchair-auth.auth.us-east-1.amazoncognito.com/oauth2/idpresponse
-# and its credentials in SSM:
-#   /armchair/shared/google-oauth/client-id     (String)
-#   /armchair/shared/google-oauth/client-secret (SecureString)
-# Plan and apply fail until both exist, same as cognito_google_idp.tf.
-
-data "aws_ssm_parameter" "armchair_google_oauth_client_id" {
-  name            = "/armchair/shared/google-oauth/client-id"
-  with_decryption = true
-}
-
-data "aws_ssm_parameter" "armchair_google_oauth_client_secret" {
-  name            = "/armchair/shared/google-oauth/client-secret"
-  with_decryption = true
-}
+# Until then the infra applies but Google rejects the sign-in redirect.
 
 resource "aws_cognito_identity_provider" "armchair_google" {
   user_pool_id  = aws_cognito_user_pool.armchair_users.id
@@ -25,8 +13,8 @@ resource "aws_cognito_identity_provider" "armchair_google" {
   # The keys after authorize_scopes are what Cognito fills in server-side for
   # provider_type Google; pinned so plans don't propose dropping them.
   provider_details = {
-    client_id        = data.aws_ssm_parameter.armchair_google_oauth_client_id.value
-    client_secret    = data.aws_ssm_parameter.armchair_google_oauth_client_secret.value
+    client_id        = data.aws_ssm_parameter.google_oauth_client_id.value
+    client_secret    = data.aws_ssm_parameter.google_oauth_client_secret.value
     authorize_scopes = "profile email openid"
 
     attributes_url                = "https://people.googleapis.com/v1/people/me?personFields="
