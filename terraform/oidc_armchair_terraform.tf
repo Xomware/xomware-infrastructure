@@ -101,36 +101,6 @@ resource "aws_iam_role_policy" "armchair_terraform_plan_state_lock" {
   policy = data.aws_iam_policy_document.reeses_terraform_plan_state_lock.json
 }
 
-# ReadOnlyAccess can read an SSM SecureString but not decrypt it, so a plan
-# refreshing an armchair SecureString fails. Decrypt is limited to SSM and
-# to that app's parameters.
-data "aws_iam_policy_document" "armchair_terraform_plan_decrypt" {
-  statement {
-    sid       = "DecryptOwnSecureStrings"
-    effect    = "Allow"
-    actions   = ["kms:Decrypt"]
-    resources = ["*"]
-
-    condition {
-      test     = "StringEquals"
-      variable = "kms:ViaService"
-      values   = ["ssm.${var.aws_region}.amazonaws.com"]
-    }
-
-    condition {
-      test     = "StringLike"
-      variable = "kms:EncryptionContext:PARAMETER_ARN"
-      values   = ["arn:aws:ssm:${var.aws_region}:${local.web_app_account_id}:parameter/armchair/*"]
-    }
-  }
-}
-
-resource "aws_iam_role_policy" "armchair_terraform_plan_decrypt" {
-  name   = "decrypt-armchair-secure-strings"
-  role   = aws_iam_role.armchair_terraform_plan.id
-  policy = data.aws_iam_policy_document.armchair_terraform_plan_decrypt.json
-}
-
 output "armchair_terraform_plan_role_arn" {
   description = "Read-only role the armchair Terraform workflow assumes for plans"
   value       = aws_iam_role.armchair_terraform_plan.arn
