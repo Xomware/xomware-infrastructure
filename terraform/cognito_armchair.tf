@@ -73,6 +73,6 @@ resource "aws_ssm_parameter" "armchair_cognito_hosted_ui_domain" {
   name        = "/armchair/shared/cognito/hosted-ui-domain"
   description = "Armchair Cognito Hosted UI domain (FQDN)"
   type        = "String"
-  value       = "${aws_cognito_user_pool_domain.armchair_auth.domain}.auth.${var.aws_region}.amazoncognito.com"
+  value       = aws_cognito_user_pool_domain.armchair_custom.domain
   tags        = local.armchair_tags
 }
