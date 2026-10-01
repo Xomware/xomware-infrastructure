@@ -1,4 +1,4 @@
-# Google sign-in for armchair-users and the DWTS app client.
+# Google sign-in for armchair-users and its app clients (DWTS, hub).
 #
 # Armchair has its own Google OAuth client, in its own Google Cloud project, so
 # the consent screen carries Armchair's name and logo rather than Xomware's.
@@ -101,5 +101,59 @@ resource "aws_ssm_parameter" "armchair_cognito_client_dwts_id" {
   description = "Cognito App Client ID for the DWTS companion (dwts.xomware.com)"
   type        = "String"
   value       = aws_cognito_user_pool_client.armchair_dwts.id
+  tags        = local.armchair_tags
+}
+
+# The Armchair Judge hub (armchairjudge.com). Same pool and Hosted UI domain as
+# DWTS, so a session on auth.armchairjudge.com signs a user into both without a
+# second Google prompt. www needs no callback: the hub's CloudFront 301s it to
+# the apex before any page loads.
+resource "aws_cognito_user_pool_client" "armchair_hub" {
+  name         = "armchair-hub-client"
+  user_pool_id = aws_cognito_user_pool.armchair_users.id
+
+  generate_secret = false
+
+  explicit_auth_flows = ["ALLOW_REFRESH_TOKEN_AUTH"]
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  callback_urls = [
+    "https://armchairjudge.com/auth/callback",
+    "http://localhost:3001/auth/callback",
+    "http://127.0.0.1:3001/auth/callback",
+  ]
+
+  logout_urls = [
+    "https://armchairjudge.com",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+  ]
+
+  supported_identity_providers = ["Google"]
+
+  depends_on = [aws_cognito_identity_provider.armchair_google]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+
+  id_token_validity      = 60
+  access_token_validity  = 60
+  refresh_token_validity = 30
+
+  token_validity_units {
+    id_token      = "minutes"
+    access_token  = "minutes"
+    refresh_token = "days"
+  }
+}
+
+resource "aws_ssm_parameter" "armchair_cognito_client_hub_id" {
+  name        = "/armchair/shared/cognito/clients/hub-id"
+  description = "Cognito App Client ID for the Armchair Judge hub (armchairjudge.com)"
+  type        = "String"
+  value       = aws_cognito_user_pool_client.armchair_hub.id
   tags        = local.armchair_tags
 }
