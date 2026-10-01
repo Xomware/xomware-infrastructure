@@ -29,6 +29,13 @@ resource "aws_cognito_user_pool" "xomware_users" {
   alias_attributes         = ["email"]
   auto_verified_attributes = ["email"]
 
+  # A new email only replaces the old one once its code is confirmed. Without
+  # this, a user could set their email to someone else's and carry that
+  # address in their ID token, which Xomper's admin gate reads.
+  user_attribute_update_settings {
+    attributes_require_verification_before_update = ["email"]
+  }
+
   # Re-enabled: the condition this was waiting on is met — the pool has real
   # users and signup/signin have been exercised end to end.
   #
