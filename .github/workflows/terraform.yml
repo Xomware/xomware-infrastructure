@@ -1,105 +1,21 @@
-# Terraform CI/CD — console-triggerable via workflow_dispatch
 name: Terraform
 
 on:
   workflow_dispatch:
   push:
     branches: [master]
-    paths: ['terraform/**', 'lambda/**']
+    paths: ['terraform/**', '.github/workflows/terraform.yml', 'lambda/**']
   pull_request:
     branches: [master]
-    paths: ['terraform/**', 'lambda/**']
-
-concurrency:
-  group: terraform-xomware-infrastructure
-  cancel-in-progress: false
+    paths: ['terraform/**', '.github/workflows/terraform.yml', 'lambda/**']
 
 permissions:
-  id-token: write # mint the OIDC token traded for the plan/apply role
   contents: read
   pull-requests: write
-
-env:
-  TF_DIR: terraform
-  AWS_REGION: us-east-1
+  id-token: write
 
 jobs:
   terraform:
-    name: Terraform
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ${{ env.TF_DIR }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: "1.5.7"
-
-      # Read-only for plans, admin only for an apply on master. Selecting the
-      # role by event means a pull request cannot assume the role that
-      # mutates, regardless of what the workflow later does.
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          role-to-assume: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/master' && secrets.AWS_TERRAFORM_APPLY_ROLE_ARN || secrets.AWS_TERRAFORM_PLAN_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
-
-      - name: Terraform Init
-        run: terraform init
-
-      - name: Terraform Validate
-        run: terraform validate
-
-      - name: Terraform Plan
-        id: plan
-        run: |
-          # A pipeline exits with tee's status, not terraform's, so without this a
-          # failed plan reports success and `Plan status` below never fires.
-          set -o pipefail
-          terraform plan -no-color -input=false -lock=false 2>&1 | tee /tmp/tf-plan.txt
-        continue-on-error: true
-        env:
-          TF_VAR_command_center_passphrase_hash: ${{ secrets.COMMAND_CENTER_PASSPHRASE_HASH }}
-          TF_VAR_smirnoff_google_client_id: ${{ secrets.SMIRNOFF_GOOGLE_CLIENT_ID }}
-          TF_VAR_smirnoff_google_client_secret: ${{ secrets.SMIRNOFF_GOOGLE_CLIENT_SECRET }}
-
-      - name: Comment PR with Plan
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        env:
-          PLAN_OUTCOME: ${{ steps.plan.outcome }}
-        with:
-          script: |
-            const fs = require('fs');
-            const raw = fs.existsSync('/tmp/tf-plan.txt')
-              ? fs.readFileSync('/tmp/tf-plan.txt', 'utf8')
-              : '';
-            const truncated = raw.length > 60000
-              ? raw.substring(0, 60000) + '\n\n... (truncated)'
-              : raw;
-            const body = '### Terraform Plan 📋\n```\n' + truncated + '\n```\n*Plan: ' + process.env.PLAN_OUTCOME + '*';
-            await github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body
-            });
-
-
-      # Without this the job is green whatever the plan did, because the plan
-      # step carries continue-on-error.
-      - name: Plan status
-        if: steps.plan.outcome == 'failure'
-        run: exit 1
-      - name: Terraform Apply
-        if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        run: terraform apply -auto-approve -input=false
-        env:
-          TF_VAR_command_center_passphrase_hash: ${{ secrets.COMMAND_CENTER_PASSPHRASE_HASH }}
-          TF_VAR_smirnoff_google_client_id: ${{ secrets.SMIRNOFF_GOOGLE_CLIENT_ID }}
-          TF_VAR_smirnoff_google_client_secret: ${{ secrets.SMIRNOFF_GOOGLE_CLIENT_SECRET }}
+    uses: Xomware/github-actions/.github/workflows/terraform.yml@v1
+    with:
+      app: xomware
