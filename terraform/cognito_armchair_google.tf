@@ -1,4 +1,4 @@
-# Google sign-in for armchair-users and its app clients (DWTS, hub).
+# Google sign-in for armchair-users and its app clients (DWTS, hub, Traitors).
 #
 # Armchair has its own Google OAuth client, in its own Google Cloud project, so
 # the consent screen carries Armchair's name and logo rather than Xomware's.
@@ -155,5 +155,57 @@ resource "aws_ssm_parameter" "armchair_cognito_client_hub_id" {
   description = "Cognito App Client ID for the Armchair Judge hub (armchairjudge.com)"
   type        = "String"
   value       = aws_cognito_user_pool_client.armchair_hub.id
+  tags        = local.armchair_tags
+}
+
+# The Traitors companion (traitors.armchairjudge.com). Same pool and Hosted UI
+# domain as DWTS and the hub, so one Google sign-in covers all three.
+resource "aws_cognito_user_pool_client" "armchair_traitors" {
+  name         = "armchair-traitors-client"
+  user_pool_id = aws_cognito_user_pool.armchair_users.id
+
+  generate_secret = false
+
+  explicit_auth_flows = ["ALLOW_REFRESH_TOKEN_AUTH"]
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  callback_urls = [
+    "https://traitors.armchairjudge.com/auth/callback",
+    "http://localhost:3000/auth/callback",
+    "http://127.0.0.1:3000/auth/callback",
+  ]
+
+  logout_urls = [
+    "https://traitors.armchairjudge.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+  ]
+
+  supported_identity_providers = ["Google"]
+
+  depends_on = [aws_cognito_identity_provider.armchair_google]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+
+  id_token_validity      = 60
+  access_token_validity  = 60
+  refresh_token_validity = 30
+
+  token_validity_units {
+    id_token      = "minutes"
+    access_token  = "minutes"
+    refresh_token = "days"
+  }
+}
+
+resource "aws_ssm_parameter" "armchair_cognito_client_traitors_id" {
+  name        = "/armchair/shared/cognito/clients/traitors-id"
+  description = "Cognito App Client ID for the Traitors companion (traitors.armchairjudge.com)"
+  type        = "String"
+  value       = aws_cognito_user_pool_client.armchair_traitors.id
   tags        = local.armchair_tags
 }
