@@ -2,7 +2,7 @@
 # GitHub Actions OIDC — apps with no infrastructure repo of their own
 #**********************
 #
-# derby, reeses and clt-dynasty deploy into this account but have NO Terraform
+# derby and reeses deploy into this account but have NO Terraform
 # anywhere: their buckets, distributions and lambdas were created by hand.
 # Their roles live here because this is the account's shared-infrastructure
 # repo and the alternative is IAM created by hand as well.
@@ -38,18 +38,6 @@ locals {
       # to /reeses/* produced a bundle with no domain, and the repo's own
       # "Google sign-in is wired" check caught it.
       ssm_prefix = "xomware/shared"
-    }
-    clt_dynasty = {
-      subjects = [
-        "repo:Xomware/clt-dynasty-league",
-        "repo:Xomware@263047999/clt-dynasty-league-frontend@1345457954",
-      ]
-      bucket        = "clt.dynasty.xomware.com"
-      distribution  = "E2C3YYJUEV78O7"
-      lambda_prefix = null
-      ssm_prefix    = "clt-dynasty"
-      # clt.dynasty.xomware.com is SSE-S3, not KMS, so there is no key to grant.
-      kms_alias = null
     }
   }
 }
@@ -166,7 +154,7 @@ data "aws_iam_policy_document" "unmanaged_app" {
   # A KMS-encrypted bucket needs the key as well as the bucket: s3:PutObject
   # alone fails with AccessDenied on kms:GenerateDataKey. Each of these apps has
   # its own key, resolved from its alias so a key rotation does not need an edit
-  # here. clt-dynasty's bucket is SSE-S3 and has no key at all.
+  # here.
   dynamic "statement" {
     for_each = each.value.kms_alias == null ? [] : [each.key]
     content {

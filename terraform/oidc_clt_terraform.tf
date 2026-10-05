@@ -64,19 +64,6 @@ data "aws_iam_policy_document" "clt_terraform_apply_trust" {
   }
 }
 
-# Both names were created by the archived clt-dynasty-league-infrastructure
-# stack. Adopting them rewrites their trust to this repo's subjects; drop the
-# imports once applied.
-import {
-  to = aws_iam_role.clt_terraform_plan
-  id = "clt-dynasty-github-actions-terraform-plan"
-}
-
-import {
-  to = aws_iam_role.clt_terraform_apply
-  id = "clt-dynasty-github-actions-terraform-apply"
-}
-
 resource "aws_iam_role" "clt_terraform_plan" {
   name               = "clt-dynasty-github-actions-terraform-plan"
   assume_role_policy = data.aws_iam_policy_document.clt_terraform_plan_trust.json
