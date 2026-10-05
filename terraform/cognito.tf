@@ -540,6 +540,55 @@ resource "aws_cognito_user_pool_client" "smirnoff" {
   }
 }
 
+resource "aws_cognito_user_pool_client" "clt" {
+  name         = "clt-client"
+  user_pool_id = aws_cognito_user_pool.xomware_users.id
+
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  # CLT Dynasty's Next.js site. Xomper's authorizer gives this client's tokens
+  # a fixed CLT route list rather than the whole API.
+  callback_urls = [
+    "https://clt.dynasty.xomware.com/auth/callback",
+    "http://localhost:3000/auth/callback",
+    "http://127.0.0.1:3000/auth/callback",
+  ]
+
+  logout_urls = [
+    "https://clt.dynasty.xomware.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+  ]
+
+  # Google only, on the shared Xomware IdP: the pool's one custom-domain slot
+  # belongs to Smirnoff, so CLT signs in through the xomware-auth prefix domain.
+  supported_identity_providers = ["Google"]
+
+  depends_on = [aws_cognito_identity_provider.google]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+
+  id_token_validity      = 60
+  access_token_validity  = 60
+  refresh_token_validity = 30
+
+  token_validity_units {
+    id_token      = "minutes"
+    access_token  = "minutes"
+    refresh_token = "days"
+  }
+}
+
 # -------------------------------------------------------------------
 # Admin group — JWT claim `cognito:groups` flows into APIs and gates
 # the /admin portal route in xomware-frontend.

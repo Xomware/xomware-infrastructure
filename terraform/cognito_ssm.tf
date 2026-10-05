@@ -95,6 +95,15 @@ resource "aws_ssm_parameter" "cognito_client_smirnoff_id" {
   lifecycle { ignore_changes = [tags, tags_all] }
 }
 
+resource "aws_ssm_parameter" "cognito_client_clt_id" {
+  name        = "/xomware/shared/cognito/clients/clt-id"
+  description = "Cognito App Client ID for the CLT Dynasty site"
+  type        = "String"
+  value       = aws_cognito_user_pool_client.clt.id
+
+  lifecycle { ignore_changes = [tags, tags_all] }
+}
+
 resource "aws_ssm_parameter" "cognito_client_xomper_id" {
   name        = "/xomware/shared/cognito/clients/xomper-id"
   description = "Cognito App Client ID for xomper"
