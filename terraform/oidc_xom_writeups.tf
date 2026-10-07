@@ -3,7 +3,7 @@
 #**********************
 #
 # The weekly write-ups are drafted by Claude routines, which have no AWS access.
-# domgiordano/xom-writeups runs the Actions on either side: export inputs before
+# Xomware/xom-writeups runs the Actions on either side: export inputs before
 # a routine, load its outputs after. Loads run on pushes to the routine's
 # claude/** branches, so the trust allows any ref.
 #
@@ -13,8 +13,8 @@
 locals {
   # Both subject forms are required: see oidc_smirnoff_terraform.tf.
   xom_writeups_subjects = [
-    "repo:domgiordano/xom-writeups",
-    "repo:domgiordano@44783934/xom-writeups@1407265746",
+    "repo:Xomware/xom-writeups",
+    "repo:Xomware@263047999/xom-writeups@1407265746",
   ]
   xom_writeups_table_arn = "arn:aws:dynamodb:${var.aws_region}:${local.web_app_account_id}:table"
 }
