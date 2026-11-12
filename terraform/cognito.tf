@@ -683,3 +683,52 @@ resource "aws_cognito_user_pool_client" "xomper" {
     refresh_token = "days"
   }
 }
+
+# Uncle Mike's NFL Pick Em, served from pickem.xomware.com. Google only: groups
+# invite people by email and the organizer is the only admin, so a password
+# flow adds support load and nothing else. Loopback is 3000 because the
+# frontend is Next.js, same as reeses.
+resource "aws_cognito_user_pool_client" "pickem" {
+  name         = "pickem-client"
+  user_pool_id = aws_cognito_user_pool.xomware_users.id
+
+  generate_secret = false
+
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+  ]
+
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+
+  callback_urls = [
+    "https://pickem.xomware.com/auth/callback",
+    "http://localhost:3000/auth/callback",
+    "http://127.0.0.1:3000/auth/callback",
+  ]
+
+  logout_urls = [
+    "https://pickem.xomware.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+  ]
+
+  supported_identity_providers = ["Google"]
+
+  depends_on = [aws_cognito_identity_provider.google]
+
+  prevent_user_existence_errors = "ENABLED"
+  enable_token_revocation       = true
+
+  id_token_validity      = 60
+  access_token_validity  = 60
+  refresh_token_validity = 30
+
+  token_validity_units {
+    id_token      = "minutes"
+    access_token  = "minutes"
+    refresh_token = "days"
+  }
+}
