@@ -112,3 +112,12 @@ resource "aws_ssm_parameter" "cognito_client_xomper_id" {
 
   lifecycle { ignore_changes = [tags, tags_all] }
 }
+
+resource "aws_ssm_parameter" "cognito_client_pickem_id" {
+  name        = "/xomware/shared/cognito/clients/pickem-id"
+  description = "Cognito App Client ID for Uncle Mike's NFL Pick Em (pickem.xomware.com)"
+  type        = "String"
+  value       = aws_cognito_user_pool_client.pickem.id
+
+  lifecycle { ignore_changes = [tags, tags_all] }
+}
